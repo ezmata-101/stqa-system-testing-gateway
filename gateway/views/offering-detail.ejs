@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head><%- include('_head') %></head>
+<body>
+<%- include('_nav') %>
+<main>
+  <h1><%= offering.code %> <span class="badge <%= offering.status %>"><%= offering.status %></span></h1>
+
+  <div class="card">
+    <h3>Overview</h3>
+    <p>Active: <%= offering.activeFrom.toISOString() %> &rarr; <%= offering.activeUntil.toISOString() %></p>
+    <p>Max team size: <%= offering.maximumTeamSize %> · Reset limit/day: <%= offering.resetLimitPerDay %></p>
+    <% if (backendVersion) { %>
+      <p>Backend: <%= backendVersion.name %> <%= backendVersion.version %> (<%= backendVersion.backendUrl %>)</p>
+      <p>Backend health:
+        <% if (backendHealth && backendHealth.reachable) { %>
+          <span class="badge active">healthy</span> (<%= backendHealth.status %>, <%= backendHealth.version %>)
+        <% } else { %>
+          <span class="badge closed">unreachable</span> <%= backendHealth ? backendHealth.error : '' %>
+        <% } %>
+      </p>
+    <% } else { %>
+      <p class="error">No backend version configured.</p>
+    <% } %>
+
+    <form class="inline" method="post" action="/admin/offerings/<%= offering.id %>/activate">
+      <button type="submit">Activate</button>
+    </form>
+    <form class="inline" method="post" action="/admin/offerings/<%= offering.id %>/close">
+      <button type="submit">Close</button>
+    </form>
+    <a class="button" href="/admin/offerings/<%= offering.id %>/export">Export activity CSV</a>
+  </div>
+
+  <div class="card">
+    <h3>Import roster</h3>
+    <form method="post" action="/admin/offerings/<%= offering.id %>/roster" enctype="multipart/form-data">
+      <p>CSV columns: student_id,name,email,section,team_code (team_code optional — auto-grouped if omitted)</p>
+      <input type="file" name="roster" accept=".csv" required />
+      <button type="submit">Provision teams &amp; credentials</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Team Activity</h3>
+    <table>
+      <thead><tr><th>Team</th><th>Database</th><th>Members</th><th>Requests</th><th>By method</th><th>First</th><th>Last</th><th>Resets</th><th></th></tr></thead>
+      <tbody>
+      <% teamActivity.forEach(function(t) { %>
+        <tr>
+          <td><%= t.team.teamCode %></td>
+          <td><%= t.team.databaseName %></td>
+          <td><%= t.members.join(', ') %></td>
+          <td><%= t.totalRequests %></td>
+          <td><%= JSON.stringify(t.requestsByMethod) %></td>
+          <td><%= t.firstActivity || '-' %></td>
+          <td><%= t.lastActivity || '-' %></td>
+          <td><%= t.resetCount %></td>
+          <td>
+            <form method="post" action="/admin/offerings/<%= offering.id %>/teams/<%= t.team.id %>/reset"
+                  onsubmit="return confirm('Reset database for team <%= t.team.teamCode %>? This cannot be undone.');">
+              <button type="submit">Reset DB</button>
+            </form>
+          </td>
+        </tr>
+      <% }); %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Student Activity</h3>
+    <table>
+      <thead><tr><th>Student</th><th>Team</th><th>Requests</th><th>GET</th><th>POST</th><th>PUT/PATCH</th><th>DELETE</th><th>4xx</th><th>5xx</th><th>First</th><th>Last</th><th></th></tr></thead>
+      <tbody>
+      <% studentActivity.forEach(function(s) { %>
+        <tr>
+          <td><%= s.studentId %></td>
+          <td><%= s.teamCode %></td>
+          <td><%= s.requestCount %></td>
+          <td><%= s.getCount %></td>
+          <td><%= s.postCount %></td>
+          <td><%= s.putPatchCount %></td>
+          <td><%= s.deleteCount %></td>
+          <td><%= s.status4xx %></td>
+          <td><%= s.status5xx %></td>
+          <td><%= s.firstActivity || '-' %></td>
+          <td><%= s.lastActivity || '-' %></td>
+          <td>
+            <form method="post" action="/admin/offerings/<%= offering.id %>/credentials/<%= s.studentId %>/revoke"
+                  onsubmit="return confirm('Revoke credential for <%= s.studentId %>?');">
+              <button type="submit">Revoke key</button>
+            </form>
+          </td>
+        </tr>
+      <% }); %>
+      </tbody>
+    </table>
+  </div>
+</main>
+</body>
+</html>

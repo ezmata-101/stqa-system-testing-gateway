@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head><%- include('_head') %></head>
+<body style="display:flex;align-items:center;justify-content:center;height:100vh;">
+  <form method="post" action="/admin/login" class="card" style="width:320px;">
+    <h2>STQA Gateway — Admin Login</h2>
+    <% if (error) { %><p class="error"><%= error %></p><% } %>
+    <label>Admin secret</label><br/>
+    <input type="password" name="secret" style="width:100%;" required autofocus /><br/><br/>
+    <button type="submit" style="width:100%;">Log in</button>
+  </form>
+</body>
+</html>

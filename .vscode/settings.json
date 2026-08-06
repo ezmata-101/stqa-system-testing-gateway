@@ -1,0 +1,6 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "mkdir": true,
+        "npx -y @nestjs/cli@latest": true
+    }
+}

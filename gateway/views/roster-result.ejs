@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head><%- include('_head') %></head>
+<body>
+<%- include('_nav') %>
+<main>
+  <h1>Roster imported: <%= offering.code %></h1>
+  <div class="card">
+    <h3>Teams created</h3>
+    <table>
+      <thead><tr><th>Team</th><th>Database</th><th>Members</th></tr></thead>
+      <tbody>
+      <% result.teams.forEach(function(t) { %>
+        <tr><td><%= t.teamCode %></td><td><%= t.databaseName %></td><td><%= t.members.join(', ') %></td></tr>
+      <% }); %>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h3>Credentials (raw keys shown once — copy them now)</h3>
+    <table>
+      <thead><tr><th>Student</th><th>Name</th><th>Team</th><th>Lab key</th></tr></thead>
+      <tbody>
+      <% result.credentials.forEach(function(c) { %>
+        <tr><td><%= c.studentId %></td><td><%= c.name %></td><td><%= c.teamCode %></td><td><code><%= c.rawKey %></code></td></tr>
+      <% }); %>
+      </tbody>
+    </table>
+  </div>
+  <a class="button" href="/admin/offerings/<%= offering.id %>">Back to offering</a>
+</main>
+</body>
+</html>

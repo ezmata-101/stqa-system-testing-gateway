@@ -1,0 +1,17 @@
+{
+  "name": "@stqa/backend-sdk",
+  "version": "0.1.0",
+  "description": "Reference helper for verifying the STQA gateway's signed X-STQA-Context token and routing to the correct team database.",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.22.0"
+  }
+}

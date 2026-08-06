@@ -1,0 +1,145 @@
+name: stqa-platform
+
+x-gateway-env: &gateway-env
+  GATEWAY_PUBLIC_URL: http://localhost:3000
+  PORT: 3000
+  CONTROL_DATABASE_URL: postgres://stqa:stqa@postgres:5432/stqa_control
+  LOGGING_DATABASE_URL: postgres://stqa:stqa@postgres:5432/stqa_logging
+  TEAM_DATABASE_ADMIN_URL: postgres://stqa:stqa@postgres:5432/postgres
+  REDIS_URL: redis://redis:6379
+  # Dev-only placeholder secrets — replace with long random values for any
+  # non-local deployment (spec section 27).
+  CONTEXT_SIGNING_SECRET: YOUR_OWN_SECRET
+  CREDENTIAL_HASH_SECRET: YOUR_OWN_SECRET
+  IP_HASH_SECRET: YOUR_OWN_SECRET
+  ADMIN_AUTH_SECRET: YOUR_OWN_SECRET
+  SESSION_SECRET: YOUR_OWN_SECRET
+  DEFAULT_REQUEST_TIMEOUT_MS: 15000
+  DEFAULT_MAX_BODY_SIZE: 2097152
+  DEFAULT_RATE_LIMIT: 120
+  DEFAULT_CONTEXT_TOKEN_TTL_SECONDS: 60
+  MAX_LOGGED_BODY_BYTES: 8192
+  MAX_TEAM_DB_POOL_SIZE: 2
+  MAX_GLOBAL_TEAM_DB_CONNECTIONS: 40
+  TEAM_DB_POOL_IDLE_TIMEOUT_MS: 300000
+  BACKEND_NETWORK_ALLOWLIST: ""
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: stqa
+      POSTGRES_PASSWORD: stqa
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stqa"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-off: applies control + logging DB migrations, then exits.
+  gateway-migrate:
+    build:
+      context: ../gateway
+      target: build
+    environment:
+      <<: *gateway-env
+    command: ["sh", "-c", "npm run migrate:control && npm run migrate:logging"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # One-off: applies the example backend's schema to its template database.
+  example-buggy-api-init:
+    build:
+      context: ..
+      dockerfile: backends/example-buggy-api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://stqa:stqa@postgres:5432/stqa_template_demo
+    command: ["node", "db/init-template.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  panda-lite-init:
+    build:
+      context: ../../stqa-test-panda-lite
+    environment:
+      DATABASE_URL: postgres://stqa:stqa@postgres:5432/postgres
+      TEMPLATE_DATABASE_NAME: stqa_template_panda_lite
+    command: ["node", "db/init-template.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  gateway:
+    build:
+      context: ../gateway
+    environment:
+      <<: *gateway-env
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      gateway-migrate:
+        condition: service_completed_successfully
+
+  example-buggy-api:
+    build:
+      context: ..
+      dockerfile: backends/example-buggy-api/Dockerfile
+    environment:
+      PORT: 4000
+      CONTEXT_SIGNING_SECRET: dev-context-signing-secret-change-me
+      TEAM_DATABASE_ADMIN_URL: postgres://stqa:stqa@postgres:5432/postgres
+      APP_JWT_SECRET: dev-app-jwt-secret-change-me
+    # Exposed on the host only for local demo/testing convenience — in a
+    # real deployment this should be on a private network the gateway can
+    # reach but students cannot (spec section 10/23).
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      example-buggy-api-init:
+        condition: service_completed_successfully
+
+  panda-lite:
+    build:
+      context: ../../stqa-test-panda-lite
+    environment:
+      PORT: 4000
+      CONTEXT_SIGNING_SECRET: dev-context-signing-secret-change-me
+      TEAM_DATABASE_ADMIN_URL: postgres://stqa:stqa@postgres:5432/postgres
+      APP_JWT_SECRET: dev-app-jwt-secret-change-me
+      DELIVERY_FEE: 50
+      PLATFORM_FEE_PERCENT: 10
+      MAX_TEAM_DB_POOL_SIZE: 2
+    ports:
+      - "4001:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      panda-lite-init:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:

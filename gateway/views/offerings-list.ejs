@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head><%- include('_head') %></head>
+<body>
+<%- include('_nav') %>
+<main>
+  <h1>Assignment Offerings</h1>
+  <p><a class="button" href="/admin/setup">+ New offering (via Setup)</a></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Code</th><th>Status</th><th>Teams</th><th>Students</th>
+        <th>Total requests</th><th>Failed</th><th>Active teams (24h)</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% offerings.forEach(function(row) { %>
+      <tr>
+        <td><%= row.offering.code %></td>
+        <td><span class="badge <%= row.offering.status %>"><%= row.offering.status %></span></td>
+        <td><%= row.teamsCount %></td>
+        <td><%= row.studentsCount %></td>
+        <td><%= row.totalRequests %></td>
+        <td><%= row.failedRequests %></td>
+        <td><%= row.activeTeamsLast24h %></td>
+        <td><a href="/admin/offerings/<%= row.offering.id %>">View</a></td>
+      </tr>
+      <% }); %>
+      <% if (offerings.length === 0) { %>
+      <tr><td colspan="8">No offerings yet. Create one from the Setup page.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "example-buggy-api",
+  "version": "0.1.0",
+  "description": "Standalone demo backend with intentional bugs, used to test the STQA gateway end-to-end. Knows nothing about the gateway's internals — only a shared context-signing secret and its own database URL.",
+  "main": "src/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/server.js",
+    "seed": "node db/seed.js",
+    "init-template": "node db/init-template.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@stqa/backend-sdk": "file:../../backend-sdk",
+    "bcryptjs": "^3.0.3",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.22.0"
+  }
+}

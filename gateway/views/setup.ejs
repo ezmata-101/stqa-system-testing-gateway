@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head><%- include('_head') %></head>
+<body>
+<%- include('_nav') %>
+<main>
+  <h1>Setup</h1>
+
+  <div class="card">
+    <h3>Semesters</h3>
+    <table>
+      <thead><tr><th>Name</th><th>Starts</th><th>Ends</th></tr></thead>
+      <tbody>
+      <% semesters.forEach(function(s) { %>
+        <tr><td><%= s.name %></td><td><%= s.starts_at %></td><td><%= s.ends_at %></td></tr>
+      <% }); %>
+      </tbody>
+    </table>
+    <form method="post" action="/admin/setup/semesters">
+      <input name="name" placeholder="e.g. Spring 2027" required />
+      <input type="datetime-local" name="startsAt" required />
+      <input type="datetime-local" name="endsAt" required />
+      <button type="submit">Add semester</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Backend versions</h3>
+    <table>
+      <thead><tr><th>Name</th><th>Version</th><th>URL</th><th>DB Template</th><th>Status</th></tr></thead>
+      <tbody>
+      <% backendVersions.forEach(function(b) { %>
+        <tr><td><%= b.name %></td><td><%= b.version %></td><td><%= b.backend_url %></td><td><%= b.database_template %></td><td><%= b.status %></td></tr>
+      <% }); %>
+      </tbody>
+    </table>
+    <form method="post" action="/admin/setup/backend-versions">
+      <input name="name" placeholder="example-buggy-api" required /><br/>
+      <input name="version" placeholder="v1" required /><br/>
+      <input name="backendUrl" placeholder="http://example-buggy-api:4000" required style="width:300px;" /><br/>
+      <input name="healthcheckPath" placeholder="/_internal/health" /><br/>
+      <input name="databaseTemplate" placeholder="stqa_template_sp27_api01" required /><br/>
+      <button type="submit">Add backend version</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Create offering</h3>
+    <form method="post" action="/admin/offerings">
+      <select name="semesterId" required>
+        <option value="">Select semester</option>
+        <% semesters.forEach(function(s) { %><option value="<%= s.id %>"><%= s.name %></option><% }); %>
+      </select><br/>
+      <select name="backendVersionId" required>
+        <option value="">Select backend version</option>
+        <% backendVersions.forEach(function(b) { %><option value="<%= b.id %>"><%= b.name %> <%= b.version %></option><% }); %>
+      </select><br/>
+      <input name="code" placeholder="STQA-SPRING-2027-API01" required style="width:260px;" /><br/>
+      <input type="datetime-local" name="activeFrom" required /><br/>
+      <input type="datetime-local" name="activeUntil" required /><br/>
+      <input type="number" name="maximumTeamSize" placeholder="4" value="4" /><br/>
+      <input type="number" name="resetLimitPerDay" placeholder="3" value="3" /><br/>
+      <button type="submit">Create offering (draft)</button>
+    </form>
+  </div>
+</main>
+</body>
+</html>

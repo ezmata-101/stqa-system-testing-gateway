@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head><%- include('_head') %></head>
+<body>
+<%- include('_nav') %>
+<main>
+  <h1>Request Lookup</h1>
+  <form method="get" action="/admin/requests/lookup" onsubmit="event.preventDefault(); window.location = '/admin/requests/' + encodeURIComponent(this.requestId.value);">
+    <input type="text" name="requestId" placeholder="request ID (UUID)" style="width:340px;" required />
+    <button type="submit">Search</button>
+  </form>
+
+  <% if (requestId && !result) { %>
+    <p class="error">No request log found for <%= requestId %>.</p>
+  <% } %>
+
+  <% if (result) { %>
+    <div class="card">
+      <table>
+        <tr><th>Request ID</th><td><%= result.request_id %></td></tr>
+        <tr><th>Offering</th><td><%= result.offering_id %></td></tr>
+        <tr><th>Team</th><td><%= result.team_id %></td></tr>
+        <tr><th>Student</th><td><%= result.student_id %></td></tr>
+        <tr><th>Started</th><td><%= result.started_at %></td></tr>
+        <tr><th>Completed</th><td><%= result.completed_at %></td></tr>
+        <tr><th>Method / Path</th><td><%= result.method %> <%= result.path %><%= result.query_string || '' %></td></tr>
+        <tr><th>Status code</th><td><%= result.status_code %></td></tr>
+        <tr><th>Response time</th><td><%= result.response_time_ms %> ms</td></tr>
+        <tr><th>Error type</th><td><%= result.error_type || '-' %></td></tr>
+        <tr><th>Sanitized request body</th><td><pre><%= result.request_body %></pre></td></tr>
+        <tr><th>Request headers (redacted)</th><td><pre><%= JSON.stringify(result.request_headers, null, 2) %></pre></td></tr>
+        <tr><th>Response headers (redacted)</th><td><pre><%= JSON.stringify(result.response_headers, null, 2) %></pre></td></tr>
+      </table>
+    </div>
+  <% } %>
+</main>
+</body>
+</html>

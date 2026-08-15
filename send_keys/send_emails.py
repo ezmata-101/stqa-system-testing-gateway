@@ -43,7 +43,7 @@ Student ID: {row['student_id']}
 Team Code: {row['team_code']}
 X-STQA-Key: {row['lab_key']}
 
-Please keep this key confidential — do not share it with other students.
+Please keep this key confidential — do not share it with other students, not even with your team mates.
 
 Best,
 YOUR NAME

@@ -30,6 +30,7 @@
       <button type="submit">Close</button>
     </form>
     <a class="button" href="/admin/offerings/<%= offering.id %>/export">Export activity CSV</a>
+    <a class="button" href="/admin/reports?offering=<%= encodeURIComponent(offering.code) %>">View activity report</a>
   </div>
 
   <div class="card">

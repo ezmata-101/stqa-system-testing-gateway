@@ -190,6 +190,15 @@ export class AdminDashboardService {
     return result.rows[0] ?? null;
   }
 
+  async activityReportData() {
+    const result = await this.loggingDb.query(
+      `SELECT request_id, student_id, team_id, started_at
+         FROM request_logs
+        ORDER BY started_at ASC NULLS LAST`,
+    );
+    return result.rows;
+  }
+
   async exportActivityReportCsv(offeringId: string): Promise<string> {
     const students = await this.studentActivity(offeringId);
     const header =

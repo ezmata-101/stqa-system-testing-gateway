@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { resolve } from 'path';
 import { AdminDashboardService } from './admin-dashboard.service';
 
 @Controller('admin')
@@ -29,6 +30,17 @@ export class AdminDashboardController {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="offering-${id}-activity.csv"`);
     res.send(csv);
+  }
+
+  @Get('reports')
+  async reportsPage(@Res() res: Response) {
+    res.sendFile(resolve(process.cwd(), 'public', 'activity-report.html'));
+  }
+
+  @Get('reports/data')
+  async reportsData(@Res() res: Response) {
+    const rows = await this.dashboard.activityReportData();
+    res.json(rows);
   }
 
   @Get('requests/lookup')

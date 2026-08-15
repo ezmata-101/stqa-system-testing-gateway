@@ -2,3 +2,4 @@ deployments/docker-compose.yml
 send_keys/.env
 send_keys/credentials.csv
 send_keys/send_log.csv
+generate_report/activity.csv

@@ -207,9 +207,7 @@ export class AdminDashboardService {
       `SELECT request_id, offering_id, team_id, student_id, started_at,
               method, path, query_string, status_code, response_time_ms,
               application_authenticated,
-              md5(coalesce(method,'') || '|' || coalesce(path,'') || '|' ||
-                  coalesce(query_string,'') || '|' || coalesce(request_body,'') || '|' ||
-                  coalesce(student_id,'')) AS dedup_hash
+              dedup_hash
          FROM request_logs
          ${where}
         ORDER BY started_at ASC NULLS LAST`,

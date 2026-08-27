@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { resolve } from 'path';
 import { AdminDashboardService } from './admin-dashboard.service';
@@ -38,9 +38,15 @@ export class AdminDashboardController {
   }
 
   @Get('reports/data')
-  async reportsData(@Res() res: Response) {
-    const rows = await this.dashboard.activityReportData();
+  async reportsData(@Query('offering') offering: string | undefined, @Res() res: Response) {
+    const rows = await this.dashboard.activityReportData(offering || undefined);
     res.json(rows);
+  }
+
+  @Get('reports/offerings')
+  async reportsOfferings(@Res() res: Response) {
+    const offerings = await this.dashboard.listOfferingCodes();
+    res.json(offerings);
   }
 
   @Get('requests/lookup')

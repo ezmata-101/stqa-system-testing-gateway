@@ -74,17 +74,39 @@
   .tooltip-count { font-weight:600; }
   .scroll-hint { text-align:center; font-size:11px; color:var(--muted); margin:24px 0 0; }
 
+  .section-title { font-size:14px; font-weight:600; margin:0 0 12px; color:var(--ink); }
+  .metrics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
+  .metric-card { padding:12px 14px; display:flex; flex-direction:column; gap:6px; }
+  .metric-label { font-size:11.5px; color:var(--muted); font-weight:600; }
+  .metric-value { font-size:20px; font-weight:700; color:var(--ink); }
+  .metric-sub { font-size:11px; color:var(--muted); }
+  .bar-list-card { padding:16px; margin-bottom:18px; }
+  .bar-list-row { display:flex; align-items:center; gap:10px; font-size:12.5px; padding:5px 0; }
+  .bar-list-key { width:230px; flex-shrink:0; color:var(--ink); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar-list-track { flex:1; background:#eef0f3; border-radius:4px; height:10px; overflow:hidden; }
+  .bar-list-fill { height:100%; background:var(--accent); }
+  .bar-list-count { width:44px; text-align:right; color:var(--muted); flex-shrink:0; }
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
+  @media (max-width:760px) { .two-col { grid-template-columns:1fr; } }
+  .members-card { padding:16px; margin-bottom:18px; }
+  .members-table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .members-table th, .members-table td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); }
+  .members-table th { color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.02em; }
+  .members-table tr:last-child td { border-bottom:none; }
+  .streak-badge { display:inline-block; background:#eaf6f2; color:var(--accent-dark); font-weight:700; padding:2px 8px; border-radius:10px; font-size:11.5px; }
+
   @media (max-width:640px) {
     .filters { flex-direction:column; align-items:stretch; }
     .generate-btn { margin-left:0; width:100%; }
     .summary-grid { grid-template-columns:repeat(2,1fr); }
+    .metrics-grid { grid-template-columns:repeat(2,1fr); }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Activity Report</h1>
-  <p class="subtitle">Select a student or team, choose a date range, and see hourly request activity (Asia/Dhaka time).</p>
+  <p class="subtitle">Select an offering, a student or team, and a date range to see detailed activity (Asia/Dhaka time).</p>
 
   <div class="card status-bar" id="statusBar">
     <span class="status-dot"></span>
@@ -92,6 +114,12 @@
   </div>
 
   <div class="card filters">
+    <div class="field">
+      <label for="offeringSelect">Offering</label>
+      <select id="offeringSelect">
+        <option value="">All offerings</option>
+      </select>
+    </div>
     <div class="field">
       <label for="typeSelect">Type</label>
       <select id="typeSelect">
@@ -134,7 +162,7 @@ const CHART_HEIGHT = 200;
 let activities = [];
 let selectedId = null;
 let reportType = "student";
-const offeringFilter = new URLSearchParams(window.location.search).get("offering");
+let selectedOffering = new URLSearchParams(window.location.search).get("offering") || "";
 
 function toDhakaParts(isoString) {
   const d = new Date(isoString);
@@ -326,6 +354,123 @@ function renderChart(buckets, countMap) {
   return card;
 }
 
+function computeReportMetrics(rows) {
+  const total = rows.length;
+  const uniqueRequests = new Set(rows.map(a => a.dedup_hash)).size;
+  let error4xx = 0, error5xx = 0, authed = 0, unauthed = 0;
+  const methodCounts = new Map();
+  const endpointCounts = new Map();
+  const responseTimes = [];
+  const dateSet = new Set();
+  rows.forEach(a => {
+    const sc = Number(a.status_code);
+    if (sc >= 400 && sc < 500) error4xx++;
+    else if (sc >= 500) error5xx++;
+    if (a.application_authenticated === true || a.application_authenticated === "true" || a.application_authenticated === "t") authed++;
+    else unauthed++;
+    const method = a.method || "?";
+    methodCounts.set(method, (methodCounts.get(method) || 0) + 1);
+    const endpointKey = `${method} ${a.path || ""}`;
+    endpointCounts.set(endpointKey, (endpointCounts.get(endpointKey) || 0) + 1);
+    if (a.response_time_ms !== null && a.response_time_ms !== undefined && a.response_time_ms !== "") {
+      responseTimes.push(Number(a.response_time_ms));
+    }
+    dateSet.add(dateKeyOf(toDhakaParts(a.started_at)));
+  });
+  responseTimes.sort((x, y) => x - y);
+  const avgResponse = responseTimes.length
+    ? Math.round(responseTimes.reduce((s, v) => s + v, 0) / responseTimes.length)
+    : 0;
+  const p95Response = responseTimes.length
+    ? responseTimes[Math.min(responseTimes.length - 1, Math.floor(0.95 * (responseTimes.length - 1)))]
+    : 0;
+  const sortedDates = Array.from(dateSet).sort();
+  let longestStreak = 0, currentStreak = 0, prevKey = null;
+  sortedDates.forEach(dk => {
+    currentStreak = prevKey && addDaysToKey(prevKey, 1) === dk ? currentStreak + 1 : 1;
+    longestStreak = Math.max(longestStreak, currentStreak);
+    prevKey = dk;
+  });
+  return {
+    total,
+    uniqueRequests,
+    error4xx,
+    error5xx,
+    errorRate: total ? ((error4xx + error5xx) / total) * 100 : 0,
+    avgResponse,
+    p95Response,
+    topEndpoints: Array.from(endpointCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6),
+    methodBreakdown: Array.from(methodCounts.entries()).sort((a, b) => b[1] - a[1]),
+    authed,
+    unauthed,
+    authRate: total ? (authed / total) * 100 : 0,
+    activeDays: sortedDates.length,
+    longestStreak,
+  };
+}
+
+function buildMetricCard(label, value, sub) {
+  const c = document.createElement("div");
+  c.className = "card metric-card";
+  c.innerHTML = `<span class="metric-label">${label}</span><span class="metric-value">${value}</span>${sub ? `<span class="metric-sub">${sub}</span>` : ""}`;
+  return c;
+}
+
+function renderBarListCard(title, entries) {
+  const card = document.createElement("div");
+  card.className = "card bar-list-card";
+  const h = document.createElement("h3");
+  h.className = "section-title";
+  h.textContent = title;
+  card.appendChild(h);
+  if (!entries.length) {
+    const p = document.createElement("p");
+    p.className = "metric-sub";
+    p.textContent = "No data.";
+    card.appendChild(p);
+    return card;
+  }
+  const max = entries[0][1] || 1;
+  entries.forEach(([key, count]) => {
+    const row = document.createElement("div");
+    row.className = "bar-list-row";
+    row.innerHTML = `<span class="bar-list-key" title="${key}">${key}</span><span class="bar-list-track"><span class="bar-list-fill" style="width:${(count / max) * 100}%"></span></span><span class="bar-list-count">${count}</span>`;
+    card.appendChild(row);
+  });
+  return card;
+}
+
+function renderMembersCard(filtered) {
+  const byStudent = new Map();
+  filtered.forEach(a => {
+    const sid = a.student_id || "unknown";
+    if (!byStudent.has(sid)) byStudent.set(sid, []);
+    byStudent.get(sid).push(a);
+  });
+  const card = document.createElement("div");
+  card.className = "card members-card";
+  const h = document.createElement("h3");
+  h.className = "section-title";
+  h.textContent = "Members";
+  card.appendChild(h);
+  const table = document.createElement("table");
+  table.className = "members-table";
+  table.innerHTML = "<thead><tr><th>Student</th><th>Requests</th><th>Unique</th><th>Errors</th><th>Active days</th><th>Last activity</th></tr></thead>";
+  const tbody = document.createElement("tbody");
+  Array.from(byStudent.entries())
+    .sort((a, b) => b[1].length - a[1].length)
+    .forEach(([sid, rows]) => {
+      const m = computeReportMetrics(rows);
+      const last = rows.reduce((max, r) => (!max || r.started_at > max ? r.started_at : max), null);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${sid}</td><td>${rows.length}</td><td>${m.uniqueRequests}</td><td>${m.error4xx + m.error5xx}</td><td>${m.activeDays}</td><td>${last ? formatDateLabel(dateKeyOf(toDhakaParts(last))) : "-"}</td>`;
+      tbody.appendChild(tr);
+    });
+  table.appendChild(tbody);
+  card.appendChild(table);
+  return card;
+}
+
 function generateReport() {
   clearError();
   if (!selectedId) { showError(`Select a ${reportType} ID before generating a report.`); return; }
@@ -394,28 +539,75 @@ function generateReport() {
 
   resultArea.appendChild(header);
   resultArea.appendChild(summary);
+
+  const metrics = computeReportMetrics(filtered);
+  const metricsGrid = document.createElement("div");
+  metricsGrid.className = "metrics-grid";
+  metricsGrid.appendChild(buildMetricCard("Unique requests", metrics.uniqueRequests, `of ${metrics.total} total`));
+  metricsGrid.appendChild(buildMetricCard("Error rate", `${metrics.errorRate.toFixed(1)}%`, `${metrics.error4xx} 4xx · ${metrics.error5xx} 5xx`));
+  metricsGrid.appendChild(buildMetricCard("Avg response", `${metrics.avgResponse} ms`, `p95: ${metrics.p95Response} ms`));
+  metricsGrid.appendChild(buildMetricCard("Authenticated", `${metrics.authRate.toFixed(1)}%`, `${metrics.authed} of ${metrics.total} requests`));
+  metricsGrid.appendChild(buildMetricCard("Active days", metrics.activeDays, `<span class="streak-badge">🔥 ${metrics.longestStreak}-day streak</span>`));
+  resultArea.appendChild(metricsGrid);
+
+  const twoCol = document.createElement("div");
+  twoCol.className = "two-col";
+  twoCol.appendChild(renderBarListCard("Top endpoints", metrics.topEndpoints));
+  twoCol.appendChild(renderBarListCard("Requests by method", metrics.methodBreakdown));
+  resultArea.appendChild(twoCol);
+
   resultArea.appendChild(renderChart(buckets, countMap));
+
+  if (reportType === "team") {
+    resultArea.appendChild(renderMembersCard(filtered));
+  }
 }
 
 generateBtn.addEventListener("click", generateReport);
 
-async function loadActivities() {
+async function loadOfferings() {
+  const select = document.getElementById("offeringSelect");
   try {
-    const res = await fetch("/admin/reports/data");
+    const res = await fetch("/admin/reports/offerings");
+    if (!res.ok) throw new Error(`Server responded ${res.status}`);
+    const offerings = await res.json();
+    offerings.forEach((o) => {
+      const opt = document.createElement("option");
+      opt.value = o.code;
+      opt.textContent = `${o.code} (${o.status})`;
+      select.appendChild(opt);
+    });
+    if (selectedOffering) select.value = selectedOffering;
+  } catch (err) {
+    // Offering list is a convenience filter; failure here is non-fatal.
+  }
+  select.addEventListener("change", () => {
+    selectedOffering = select.value;
+    selectedId = null;
+    searchInput.value = "";
+    resultArea.innerHTML = "";
+    loadActivities();
+  });
+}
+
+async function loadActivities() {
+  statusBar.className = "card status-bar";
+  statusText.textContent = "Loading activity data…";
+  try {
+    const url = "/admin/reports/data" + (selectedOffering ? `?offering=${encodeURIComponent(selectedOffering)}` : "");
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`Server responded ${res.status}`);
     activities = await res.json();
-    if (offeringFilter) {
-      activities = activities.filter((row) => String(row.offering_id) === String(offeringFilter));
-    }
     statusBar.className = "card status-bar ok";
-    statusText.textContent = offeringFilter
-      ? `Connected — ${activities.length} activity records loaded for offering ${offeringFilter}.`
+    statusText.textContent = selectedOffering
+      ? `Connected — ${activities.length} activity records loaded for offering ${selectedOffering}.`
       : `Connected — ${activities.length} activity records loaded from the server.`;
   } catch (err) {
     statusBar.className = "card status-bar err";
     statusText.textContent = `Could not load activity data: ${err.message}`;
   }
 }
+loadOfferings();
 loadActivities();
 </script>
 </body>

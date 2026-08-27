@@ -190,13 +190,37 @@ export class AdminDashboardService {
     return result.rows[0] ?? null;
   }
 
-  async activityReportData() {
+  /**
+   * Row-level data backing the interactive activity report (spec section 24).
+   * `dedup_hash` is computed on the fly (method+path+query+body+student) so
+   * the client can tell apart genuinely distinct requests from retries of
+   * the exact same call, without needing a stored hash column.
+   */
+  async activityReportData(offeringCode?: string) {
+    const params: unknown[] = [];
+    let where = '';
+    if (offeringCode) {
+      params.push(offeringCode);
+      where = 'WHERE offering_id = $1';
+    }
     const result = await this.loggingDb.query(
-      `SELECT request_id, student_id, team_id, started_at
+      `SELECT request_id, offering_id, team_id, student_id, started_at,
+              method, path, query_string, status_code, response_time_ms,
+              application_authenticated,
+              md5(coalesce(method,'') || '|' || coalesce(path,'') || '|' ||
+                  coalesce(query_string,'') || '|' || coalesce(request_body,'') || '|' ||
+                  coalesce(student_id,'')) AS dedup_hash
          FROM request_logs
+         ${where}
         ORDER BY started_at ASC NULLS LAST`,
+      params,
     );
     return result.rows;
+  }
+
+  async listOfferingCodes() {
+    const offerings = await this.offerings.listAll();
+    return offerings.map((o) => ({ id: o.id, code: o.code, status: o.status }));
   }
 
   async exportActivityReportCsv(offeringId: string): Promise<string> {

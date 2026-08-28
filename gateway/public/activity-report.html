@@ -53,7 +53,9 @@
   .summary-value { font-size:20px; font-weight:700; color:var(--ink); }
 
   .chart-card { padding:16px; }
-  .chart-title { font-size:14px; font-weight:600; margin:0 0 14px; color:var(--ink); }
+  .chart-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+  .chart-title { font-size:14px; font-weight:600; margin:0; color:var(--ink); }
+  .chart-view-select { border:1px solid #d5d8de; border-radius:6px; padding:5px 8px; font-size:12px; background:#fff; color:var(--ink); }
   .chart-body { display:flex; }
   .y-axis { display:flex; flex-direction:column; justify-content:space-between; height:200px; padding-right:8px; font-size:10.5px; color:#9aa0ab; text-align:right; }
   .chart-scroll { overflow-x:auto; flex:1; padding-bottom:4px; position:relative; }
@@ -73,6 +75,14 @@
   .tooltip-range { color:#c7cad1; margin-bottom:4px; }
   .tooltip-count { font-weight:600; }
   .scroll-hint { text-align:center; font-size:11px; color:var(--muted); margin:24px 0 0; }
+  .heatmap-scroll { overflow-x:auto; padding-bottom:4px; }
+  .heatmap-grid { display:grid; grid-template-columns:72px repeat(24, minmax(27px, 1fr)); gap:3px; min-width:760px; }
+  .heatmap-hour { font-size:10px; color:#9aa0ab; text-align:center; white-space:nowrap; padding-bottom:4px; }
+  .heatmap-date { align-self:center; font-size:11px; color:#4b5262; white-space:nowrap; }
+  .heatmap-cell { aspect-ratio:1; min-height:20px; border-radius:3px; background:#f1f3f4; cursor:pointer; }
+  .heatmap-cell:hover { outline:2px solid var(--accent-dark); outline-offset:1px; }
+  .heatmap-legend { display:flex; align-items:center; justify-content:flex-end; gap:5px; margin-top:12px; font-size:10px; color:var(--muted); }
+  .heatmap-swatch { width:13px; height:13px; border-radius:3px; }
 
   .section-title { font-size:14px; font-weight:600; margin:0 0 12px; color:var(--ink); }
   .metrics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
@@ -86,7 +96,7 @@
   .bar-list-track { flex:1; background:#eef0f3; border-radius:4px; height:10px; overflow:hidden; }
   .bar-list-fill { height:100%; background:var(--accent); }
   .bar-list-count { width:44px; text-align:right; color:var(--muted); flex-shrink:0; }
-  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
+  .two-col { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:18px; }
   @media (max-width:760px) { .two-col { grid-template-columns:1fr; } }
   .members-card { padding:16px; margin-bottom:18px; }
   .members-table { width:100%; border-collapse:collapse; font-size:12.5px; }
@@ -158,6 +168,7 @@
 const DHAKA_TZ = "Asia/Dhaka";
 const PX_PER_HOUR = 44;
 const CHART_HEIGHT = 200;
+const DEFAULT_START_DATE = "2026-08-06";
 
 let activities = [];
 let selectedId = null;
@@ -173,6 +184,9 @@ function toDhakaParts(isoString) {
 }
 function dateKeyOf(p){ return `${p.year}-${String(p.month).padStart(2,"0")}-${String(p.day).padStart(2,"0")}`; }
 function bucketKeyOf(p){ return `${dateKeyOf(p)}T${String(p.hour).padStart(2,"0")}`; }
+function todayInDhaka() {
+  return dateKeyOf(toDhakaParts(new Date().toISOString()));
+}
 function addDaysToKey(dateKey, days) {
   const [y,m,d] = dateKey.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m-1, d));
@@ -259,14 +273,10 @@ function buildTooltipEl() {
   return el;
 }
 
-function renderChart(buckets, countMap) {
+function renderTimelineContent(buckets, countMap) {
   const maxCount = buckets.reduce((m,b) => Math.max(m, countMap.get(b.key) || 0), 0) || 1;
   const labelEvery = buckets.length <= 30 ? 1 : buckets.length <= 100 ? 3 : buckets.length <= 300 ? 6 : 12;
   const yTicks = [0,.25,.5,.75,1].map(f => Math.round(maxCount * f));
-
-  const card = document.createElement("div");
-  card.className = "card chart-card";
-  card.innerHTML = `<h3 class="chart-title">Requests by hour</h3>`;
 
   const body = document.createElement("div");
   body.className = "chart-body";
@@ -344,13 +354,81 @@ function renderChart(buckets, countMap) {
   scrollDiv.appendChild(inner);
   body.appendChild(yAxis);
   body.appendChild(scrollDiv);
-  card.appendChild(body);
 
   const hint = document.createElement("p");
   hint.className = "scroll-hint";
   hint.textContent = "← scroll horizontally →";
-  card.appendChild(hint);
 
+  const content = document.createElement("div");
+  content.appendChild(body);
+  content.appendChild(hint);
+  return content;
+}
+
+function renderHeatmapContent(buckets, countMap) {
+  const maxCount = buckets.reduce((m, b) => Math.max(m, countMap.get(b.key) || 0), 0) || 1;
+  const dates = Array.from(new Set(buckets.map(b => b.dateKey)));
+  const grid = document.createElement("div");
+  grid.className = "heatmap-grid";
+
+  grid.appendChild(document.createElement("span"));
+  for (let hour = 0; hour < 24; hour++) {
+    const label = document.createElement("span");
+    label.className = "heatmap-hour";
+    label.textContent = hour % 3 === 0 ? formatHourLabel(hour) : "";
+    grid.appendChild(label);
+  }
+
+  dates.forEach(dateKey => {
+    const dateLabel = document.createElement("span");
+    dateLabel.className = "heatmap-date";
+    dateLabel.textContent = formatDateShort(dateKey);
+    grid.appendChild(dateLabel);
+    for (let hour = 0; hour < 24; hour++) {
+      const key = `${dateKey}T${String(hour).padStart(2, "0")}`;
+      const count = countMap.get(key) || 0;
+      const cell = document.createElement("div");
+      cell.className = "heatmap-cell";
+      cell.title = `${formatDateLabel(dateKey)}, ${formatHourLabel(hour)} – ${formatHourLabel((hour + 1) % 24)}: ${count} request${count === 1 ? "" : "s"}`;
+      if (count > 0) {
+        const intensity = 0.18 + (count / maxCount) * 0.82;
+        cell.style.backgroundColor = `rgba(15, 110, 86, ${intensity})`;
+      }
+      grid.appendChild(cell);
+    }
+  });
+
+  const scroll = document.createElement("div");
+  scroll.className = "heatmap-scroll";
+  scroll.appendChild(grid);
+
+  const legend = document.createElement("div");
+  legend.className = "heatmap-legend";
+  legend.innerHTML = "Less <span class=\"heatmap-swatch\" style=\"background:#f1f3f4\"></span><span class=\"heatmap-swatch\" style=\"background:rgba(15,110,86,.45)\"></span><span class=\"heatmap-swatch\" style=\"background:rgba(15,110,86,1)\"></span> More";
+  scroll.appendChild(legend);
+  return scroll;
+}
+
+function renderChart(buckets, countMap) {
+  const card = document.createElement("div");
+  card.className = "card chart-card";
+  const heading = document.createElement("div");
+  heading.className = "chart-heading";
+  heading.innerHTML = `<h3 class="chart-title">Requests by hour</h3>`;
+  const select = document.createElement("select");
+  select.className = "chart-view-select";
+  select.setAttribute("aria-label", "Activity chart view");
+  select.innerHTML = `<option value="heatmap">Heatmap</option><option value="timeline">Timeline</option>`;
+  heading.appendChild(select);
+  const content = document.createElement("div");
+  content.appendChild(renderHeatmapContent(buckets, countMap));
+  select.addEventListener("change", () => {
+    content.replaceChildren(select.value === "heatmap"
+      ? renderHeatmapContent(buckets, countMap)
+      : renderTimelineContent(buckets, countMap));
+  });
+  card.appendChild(heading);
+  card.appendChild(content);
   return card;
 }
 
@@ -360,6 +438,7 @@ function computeReportMetrics(rows) {
   let error4xx = 0, error5xx = 0, authed = 0, unauthed = 0;
   const methodCounts = new Map();
   const endpointCounts = new Map();
+  const routeCounts = new Map();
   const responseTimes = [];
   const dateSet = new Set();
   rows.forEach(a => {
@@ -372,6 +451,11 @@ function computeReportMetrics(rows) {
     methodCounts.set(method, (methodCounts.get(method) || 0) + 1);
     const endpointKey = `${method} ${a.path || ""}`;
     endpointCounts.set(endpointKey, (endpointCounts.get(endpointKey) || 0) + 1);
+    const routeKey = (a.path || "").replace(
+      /^\/api\/panda-262(\/[^/]+)(?:\/.*)?$/,
+      "$1"
+    );
+    routeCounts.set(routeKey, (routeCounts.get(routeKey) || 0) + 1);
     if (a.response_time_ms !== null && a.response_time_ms !== undefined && a.response_time_ms !== "") {
       responseTimes.push(Number(a.response_time_ms));
     }
@@ -399,7 +483,8 @@ function computeReportMetrics(rows) {
     errorRate: total ? ((error4xx + error5xx) / total) * 100 : 0,
     avgResponse,
     p95Response,
-    topEndpoints: Array.from(endpointCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6),
+    topEndpoints: Array.from(endpointCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20),
+    topRoutes: Array.from(routeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20),
     methodBreakdown: Array.from(methodCounts.entries()).sort((a, b) => b[1] - a[1]),
     authed,
     unauthed,
@@ -545,7 +630,7 @@ function generateReport() {
   metricsGrid.className = "metrics-grid";
   metricsGrid.appendChild(buildMetricCard("Unique requests", metrics.uniqueRequests, `of ${metrics.total} total`));
   metricsGrid.appendChild(buildMetricCard("Error rate", `${metrics.errorRate.toFixed(1)}%`, `${metrics.error4xx} 4xx · ${metrics.error5xx} 5xx`));
-  metricsGrid.appendChild(buildMetricCard("Avg response", `${metrics.avgResponse} ms`, `p95: ${metrics.p95Response} ms`));
+  // metricsGrid.appendChild(buildMetricCard("Avg response", `${metrics.avgResponse} ms`, `p95: ${metrics.p95Response} ms`));
   metricsGrid.appendChild(buildMetricCard("Authenticated", `${metrics.authRate.toFixed(1)}%`, `${metrics.authed} of ${metrics.total} requests`));
   metricsGrid.appendChild(buildMetricCard("Active days", metrics.activeDays, `<span class="streak-badge">🔥 ${metrics.longestStreak}-day streak</span>`));
   resultArea.appendChild(metricsGrid);
@@ -553,6 +638,7 @@ function generateReport() {
   const twoCol = document.createElement("div");
   twoCol.className = "two-col";
   twoCol.appendChild(renderBarListCard("Top endpoints", metrics.topEndpoints));
+  twoCol.appendChild(renderBarListCard("Requests by route", metrics.topRoutes));
   twoCol.appendChild(renderBarListCard("Requests by method", metrics.methodBreakdown));
   resultArea.appendChild(twoCol);
 
@@ -607,6 +693,8 @@ async function loadActivities() {
     statusText.textContent = `Could not load activity data: ${err.message}`;
   }
 }
+startDateInput.value = DEFAULT_START_DATE;
+endDateInput.value = todayInDhaka();
 loadOfferings();
 loadActivities();
 </script>

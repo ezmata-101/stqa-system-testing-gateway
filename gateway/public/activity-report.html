@@ -1,604 +1,1279 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Activity Report</title>
-<style>
-  :root { --accent:#0f6e56; --accent-dark:#085041; --border:#e4e6eb; --muted:#6b7280; --ink:#12151c; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:#f2f3f5; color:#1f2430; }
-  .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 16px 60px; }
-  h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; color: var(--ink); }
-  .subtitle { font-size: 13px; color: var(--muted); margin: 0 0 20px; }
-
-  .card { background:#fff; border:1px solid var(--border); border-radius:10px; }
-  .status-bar { padding:10px 16px; margin-bottom:16px; font-size:12.5px; color: var(--muted); display:flex; align-items:center; gap:10px; }
-  .status-bar.ok { color: var(--accent); font-weight: 600; }
-  .status-bar.err { color: #b3261e; font-weight: 600; }
-  .status-dot { width:7px; height:7px; border-radius:50%; background:#9aa0ab; flex-shrink:0; }
-  .status-bar.ok .status-dot { background: var(--accent); }
-  .status-bar.err .status-dot { background: #b3261e; }
-
-  .filters { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; padding:14px 16px; margin-bottom:18px; }
-  .field { display:flex; flex-direction:column; gap:5px; min-width:140px; }
-  .field label { font-size:11px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); }
-  select, input[type=date] { border:1px solid #d5d8de; border-radius:6px; padding:7px 10px; font-size:13px; background:#fff; color:var(--ink); }
-  .search-wrap { position:relative; flex:1; min-width:200px; }
-  .search-box { display:flex; align-items:center; gap:6px; border:1px solid #d5d8de; border-radius:6px; padding:7px 10px; }
-  .search-box svg { color:#9aa0ab; flex-shrink:0; }
-  .search-box input { border:none; outline:none; font-size:13px; flex:1; }
-  .dropdown { position:absolute; top:100%; left:0; right:0; margin-top:4px; background:#fff; border:1px solid var(--border); border-radius:6px; box-shadow:0 4px 12px rgba(20,20,30,.08); z-index:20; max-height:200px; overflow-y:auto; display:none; }
-  .dropdown.open { display:block; }
-  .dropdown-item { padding:8px 12px; font-size:13px; cursor:pointer; }
-  .dropdown-item:hover { background:#f2f4f7; }
-  .generate-btn { background: var(--accent); color:#fff; border:none; border-radius:6px; padding:9px 18px; font-size:13px; font-weight:600; cursor:pointer; margin-left:auto; }
-  .generate-btn:hover { background: var(--accent-dark); }
-  .generate-btn:disabled { background:#c7cad1; cursor:not-allowed; }
-  .error-msg { color:#b3261e; font-size:12.5px; margin:-8px 0 14px 2px; display:none; }
-  .error-msg.show { display:block; }
-
-  .empty-state { text-align:center; padding:48px 20px; color:var(--muted); font-size:14px; }
-  .empty-state strong { display:block; font-size:15px; color:var(--ink); margin-bottom:6px; }
-
-  .report-header { padding:14px 16px; margin-bottom:14px; }
-  .report-kicker { font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin:0 0 8px; }
-  .report-meta { display:flex; flex-wrap:wrap; gap:20px; font-size:14px; }
-  .report-meta b { color:var(--ink); }
-  .report-range { font-size:12.5px; color:var(--muted); margin-top:6px; }
-
-  .summary-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
-  .summary-card { padding:12px 14px; display:flex; flex-direction:column; gap:6px; }
-  .summary-label { font-size:11.5px; color:var(--muted); font-weight:600; }
-  .summary-value { font-size:20px; font-weight:700; color:var(--ink); }
-
-  .chart-card { padding:16px; }
-  .chart-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
-  .chart-title { font-size:14px; font-weight:600; margin:0; color:var(--ink); }
-  .chart-view-select { border:1px solid #d5d8de; border-radius:6px; padding:5px 8px; font-size:12px; background:#fff; color:var(--ink); }
-  .chart-body { display:flex; }
-  .y-axis { display:flex; flex-direction:column; justify-content:space-between; height:200px; padding-right:8px; font-size:10.5px; color:#9aa0ab; text-align:right; }
-  .chart-scroll { overflow-x:auto; flex:1; padding-bottom:4px; position:relative; }
-  .chart-inner { position:relative; min-width:100%; }
-  .gridlines { position:absolute; top:0; left:0; right:0; height:200px; display:flex; flex-direction:column; justify-content:space-between; pointer-events:none; }
-  .gridline { border-top:1px solid #eef0f3; }
-  .bars { display:flex; align-items:flex-end; height:200px; position:relative; }
-  .bar-col { width:8px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; position:relative; }
-  .newday { border-left:1px dashed #d5d8de; }
-  .day-label { position:absolute; top:-18px; left:4px; font-size:10.5px; font-weight:600; color:#4b5262; white-space:nowrap; }
-  .bar-track { width:100%; height:100%; display:flex; align-items:flex-end; justify-content:center; }
-  .bar { width:95%; background:var(--accent); border-radius:3px 3px 0 0; cursor:pointer; transition:background .1s; }
-  .bar:hover { background: var(--accent-dark); }
-  .hour-label { position:absolute; bottom:-18px; font-size:9.5px; color:#9aa0ab; white-space:nowrap; }
-  .tooltip { position:absolute; transform:translateX(-50%); background:var(--ink); color:#fff; font-size:11.5px; padding:8px 10px; border-radius:6px; z-index:30; pointer-events:none; white-space:nowrap; display:none; }
-  .tooltip-date { font-weight:600; margin-bottom:2px; }
-  .tooltip-range { color:#c7cad1; margin-bottom:4px; }
-  .tooltip-count { font-weight:600; }
-  .scroll-hint { text-align:center; font-size:11px; color:var(--muted); margin:24px 0 0; }
-  .heatmap-scroll { overflow-x:auto; padding-bottom:4px; }
-  .heatmap-grid { display:grid; grid-template-columns:72px repeat(24, minmax(27px, 1fr)); gap:3px; min-width:760px; }
-  .heatmap-hour { font-size:10px; color:#9aa0ab; text-align:center; white-space:nowrap; padding-bottom:4px; }
-  .heatmap-date { align-self:center; font-size:11px; color:#4b5262; white-space:nowrap; }
-  .heatmap-cell { aspect-ratio:1; min-height:20px; border-radius:3px; background:#f1f3f4; cursor:pointer; }
-  .heatmap-cell:hover { outline:2px solid var(--accent-dark); outline-offset:1px; }
-  .heatmap-legend { display:flex; align-items:center; justify-content:flex-end; gap:5px; margin-top:12px; font-size:10px; color:var(--muted); }
-  .heatmap-swatch { width:13px; height:13px; border-radius:3px; }
-
-  .section-title { font-size:14px; font-weight:600; margin:0 0 12px; color:var(--ink); }
-  .metrics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
-  .metric-card { padding:12px 14px; display:flex; flex-direction:column; gap:6px; }
-  .metric-label { font-size:11.5px; color:var(--muted); font-weight:600; }
-  .metric-value { font-size:20px; font-weight:700; color:var(--ink); }
-  .metric-sub { font-size:11px; color:var(--muted); }
-  .bar-list-card { padding:16px; margin-bottom:18px; }
-  .bar-list-row { display:flex; align-items:center; gap:10px; font-size:12.5px; padding:5px 0; }
-  .bar-list-key { width:230px; flex-shrink:0; color:var(--ink); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .bar-list-track { flex:1; background:#eef0f3; border-radius:4px; height:10px; overflow:hidden; }
-  .bar-list-fill { height:100%; background:var(--accent); }
-  .bar-list-count { width:44px; text-align:right; color:var(--muted); flex-shrink:0; }
-  .two-col { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:18px; }
-  @media (max-width:760px) { .two-col { grid-template-columns:1fr; } }
-  .members-card { padding:16px; margin-bottom:18px; }
-  .members-table { width:100%; border-collapse:collapse; font-size:12.5px; }
-  .members-table th, .members-table td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); }
-  .members-table th { color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.02em; }
-  .members-table tr:last-child td { border-bottom:none; }
-  .streak-badge { display:inline-block; background:#eaf6f2; color:var(--accent-dark); font-weight:700; padding:2px 8px; border-radius:10px; font-size:11.5px; }
-
-  @media (max-width:640px) {
-    .filters { flex-direction:column; align-items:stretch; }
-    .generate-btn { margin-left:0; width:100%; }
-    .summary-grid { grid-template-columns:repeat(2,1fr); }
-    .metrics-grid { grid-template-columns:repeat(2,1fr); }
-  }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <h1>Activity Report</h1>
-  <p class="subtitle">Select an offering, a student or team, and a date range to see detailed activity (Asia/Dhaka time).</p>
-
-  <div class="card status-bar" id="statusBar">
-    <span class="status-dot"></span>
-    <span id="statusText">Loading activity data…</span>
-  </div>
-
-  <div class="card filters">
-    <div class="field">
-      <label for="offeringSelect">Offering</label>
-      <select id="offeringSelect">
-        <option value="">All offerings</option>
-      </select>
-    </div>
-    <div class="field">
-      <label for="typeSelect">Type</label>
-      <select id="typeSelect">
-        <option value="student">Student</option>
-        <option value="team">Team</option>
-      </select>
-    </div>
-
-    <div class="field search-wrap">
-      <label>Search</label>
-      <div class="search-box">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="searchInput" placeholder="Search student ID..." autocomplete="off" />
-      </div>
-      <div class="dropdown" id="dropdown"></div>
-    </div>
-
-    <div class="field">
-      <label for="startDate">Start date</label>
-      <input type="date" id="startDate" />
-    </div>
-    <div class="field">
-      <label for="endDate">End date</label>
-      <input type="date" id="endDate" />
-    </div>
-
-    <button class="generate-btn" id="generateBtn">Generate report</button>
-  </div>
-
-  <p class="error-msg" id="errorMsg"></p>
-
-  <div id="resultArea"></div>
-</div>
-
-<script>
-const DHAKA_TZ = "Asia/Dhaka";
-const PX_PER_HOUR = 44;
-const CHART_HEIGHT = 200;
-const DEFAULT_START_DATE = "2026-08-06";
-
-let activities = [];
-let selectedId = null;
-let reportType = "student";
-let selectedOffering = new URLSearchParams(window.location.search).get("offering") || "";
-
-function toDhakaParts(isoString) {
-  const d = new Date(isoString);
-  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: DHAKA_TZ, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", hourCycle:"h23" });
-  const parts = {};
-  fmt.formatToParts(d).forEach(p => parts[p.type] = p.value);
-  return { year:+parts.year, month:+parts.month, day:+parts.day, hour:+parts.hour };
-}
-function dateKeyOf(p){ return `${p.year}-${String(p.month).padStart(2,"0")}-${String(p.day).padStart(2,"0")}`; }
-function bucketKeyOf(p){ return `${dateKeyOf(p)}T${String(p.hour).padStart(2,"0")}`; }
-function todayInDhaka() {
-  return dateKeyOf(toDhakaParts(new Date().toISOString()));
-}
-function addDaysToKey(dateKey, days) {
-  const [y,m,d] = dateKey.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m-1, d));
-  dt.setUTCDate(dt.getUTCDate() + days);
-  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,"0")}-${String(dt.getUTCDate()).padStart(2,"0")}`;
-}
-function formatDateLabel(dateKey) {
-  const [y,m,d] = dateKey.split("-").map(Number);
-  return new Date(Date.UTC(y,m-1,d)).toLocaleDateString("en-US",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"});
-}
-function formatDateShort(dateKey) {
-  const [y,m,d] = dateKey.split("-").map(Number);
-  return new Date(Date.UTC(y,m-1,d)).toLocaleDateString("en-US",{day:"numeric",month:"short",timeZone:"UTC"});
-}
-function formatHourLabel(hour) {
-  const h12 = hour % 12 === 0 ? 12 : hour % 12;
-  return `${h12} ${hour < 12 ? "AM" : "PM"}`;
-}
-function buildBuckets(startDate, endDate) {
-  const buckets = [];
-  let cursor = startDate, guard = 0;
-  while (cursor <= endDate && guard < 4000) {
-    for (let hour=0; hour<24; hour++) buckets.push({ dateKey: cursor, hour, key: `${cursor}T${String(hour).padStart(2,"0")}` });
-    if (cursor === endDate) break;
-    cursor = addDaysToKey(cursor, 1);
-    guard++;
-  }
-  return buckets;
-}
-
-const typeSelect = document.getElementById("typeSelect");
-const searchInput = document.getElementById("searchInput");
-const dropdown = document.getElementById("dropdown");
-const startDateInput = document.getElementById("startDate");
-const endDateInput = document.getElementById("endDate");
-const generateBtn = document.getElementById("generateBtn");
-const errorMsg = document.getElementById("errorMsg");
-const resultArea = document.getElementById("resultArea");
-const statusBar = document.getElementById("statusBar");
-const statusText = document.getElementById("statusText");
-
-function distinctIds(field) {
-  return Array.from(new Set(activities.map(a => String(a[field])))).sort();
-}
-
-function renderDropdown() {
-  const field = reportType === "student" ? "student_id" : "team_id";
-  const options = distinctIds(field);
-  const text = searchInput.value.trim().toLowerCase();
-  const filtered = (text ? options.filter(o => o.toLowerCase().includes(text)) : options).slice(0, 8);
-  dropdown.innerHTML = "";
-  filtered.forEach(id => {
-    const item = document.createElement("div");
-    item.className = "dropdown-item";
-    item.textContent = id;
-    item.addEventListener("mousedown", () => {
-      searchInput.value = id;
-      selectedId = id;
-      dropdown.classList.remove("open");
-    });
-    dropdown.appendChild(item);
-  });
-  dropdown.classList.toggle("open", filtered.length > 0);
-}
-
-typeSelect.addEventListener("change", () => {
-  reportType = typeSelect.value;
-  searchInput.placeholder = reportType === "student" ? "Search student ID..." : "Search team ID...";
-  searchInput.value = "";
-  selectedId = null;
-  renderDropdown();
-});
-searchInput.addEventListener("focus", renderDropdown);
-searchInput.addEventListener("input", () => { selectedId = null; renderDropdown(); });
-searchInput.addEventListener("blur", () => setTimeout(() => dropdown.classList.remove("open"), 120));
-
-function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add("show"); }
-function clearError() { errorMsg.textContent = ""; errorMsg.classList.remove("show"); }
-
-function buildTooltipEl() {
-  const el = document.createElement("div");
-  el.className = "tooltip";
-  el.innerHTML = `<div class="tooltip-date"></div><div class="tooltip-range"></div><div class="tooltip-count"></div>`;
-  return el;
-}
-
-function renderTimelineContent(buckets, countMap) {
-  const maxCount = buckets.reduce((m,b) => Math.max(m, countMap.get(b.key) || 0), 0) || 1;
-  const labelEvery = buckets.length <= 30 ? 1 : buckets.length <= 100 ? 3 : buckets.length <= 300 ? 6 : 12;
-  const yTicks = [0,.25,.5,.75,1].map(f => Math.round(maxCount * f));
-
-  const body = document.createElement("div");
-  body.className = "chart-body";
-
-  const yAxis = document.createElement("div");
-  yAxis.className = "y-axis";
-  yTicks.slice().reverse().forEach(t => {
-    const s = document.createElement("span");
-    s.textContent = t;
-    yAxis.appendChild(s);
-  });
-
-  const scrollDiv = document.createElement("div");
-  scrollDiv.className = "chart-scroll";
-  const inner = document.createElement("div");
-  inner.className = "chart-inner";
-  inner.style.width = (buckets.length * PX_PER_HOUR) + "px";
-
-  const gridlines = document.createElement("div");
-  gridlines.className = "gridlines";
-  yTicks.forEach(() => gridlines.appendChild(Object.assign(document.createElement("div"), {className:"gridline"})));
-
-  const barsDiv = document.createElement("div");
-  barsDiv.className = "bars";
-
-  const tooltip = buildTooltipEl();
-
-  buckets.forEach((b, i) => {
-    const count = countMap.get(b.key) || 0;
-    const isNewDay = i === 0 || buckets[i-1].dateKey !== b.dateKey;
-    const barH = count === 0 ? 0 : Math.max(2, (count / maxCount) * CHART_HEIGHT);
-    const showLabel = i % labelEvery === 0;
-
-    const col = document.createElement("div");
-    col.className = "bar-col" + (isNewDay ? " newday" : "");
-
-    if (isNewDay) {
-      const dl = document.createElement("span");
-      dl.className = "day-label";
-      dl.textContent = formatDateShort(b.dateKey);
-      col.appendChild(dl);
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Activity Report</title>
+  <style>
+    :root {
+      --accent: #0f6e56;
+      --accent-dark: #085041;
+      --border: #e4e6eb;
+      --muted: #6b7280;
+      --ink: #12151c;
+      --panel-bg: #f7f8f9;
     }
 
-    const track = document.createElement("div");
-    track.className = "bar-track";
-    const bar = document.createElement("div");
-    bar.className = "bar";
-    bar.style.height = barH + "px";
-    bar.addEventListener("mouseenter", () => {
-      const rect = bar.getBoundingClientRect();
-      const wrapRect = scrollDiv.getBoundingClientRect();
-      tooltip.style.left = (rect.left - wrapRect.left + scrollDiv.scrollLeft + rect.width/2) + "px";
-      tooltip.style.top = Math.max(0, rect.top - wrapRect.top - 54) + "px";
-      tooltip.querySelector(".tooltip-date").textContent = formatDateLabel(b.dateKey);
-      tooltip.querySelector(".tooltip-range").textContent = `${formatHourLabel(b.hour)} – ${formatHourLabel((b.hour+1)%24)}`;
-      tooltip.querySelector(".tooltip-count").textContent = `Requests: ${count}`;
-      tooltip.style.display = "block";
-    });
-    bar.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
-    track.appendChild(bar);
-    col.appendChild(track);
-
-    if (showLabel) {
-      const hl = document.createElement("span");
-      hl.className = "hour-label";
-      hl.textContent = formatHourLabel(b.hour);
-      col.appendChild(hl);
+    * {
+      box-sizing: border-box;
     }
-    barsDiv.appendChild(col);
-  });
 
-  inner.appendChild(gridlines);
-  inner.appendChild(barsDiv);
-  inner.appendChild(tooltip);
-  scrollDiv.appendChild(inner);
-  body.appendChild(yAxis);
-  body.appendChild(scrollDiv);
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f2f3f5;
+      color: #1f2430;
+      font-size: 13px;
+    }
 
-  const hint = document.createElement("p");
-  hint.className = "scroll-hint";
-  hint.textContent = "← scroll horizontally →";
+    /* ---- Shell: sidebar + content ---- */
+    .shell {
+      display: flex;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
 
-  const content = document.createElement("div");
-  content.appendChild(body);
-  content.appendChild(hint);
-  return content;
-}
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid var(--border);
+      padding: 16px 14px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
 
-function renderHeatmapContent(buckets, countMap) {
-  const maxCount = buckets.reduce((m, b) => Math.max(m, countMap.get(b.key) || 0), 0) || 1;
-  const dates = Array.from(new Set(buckets.map(b => b.dateKey)));
-  const grid = document.createElement("div");
-  grid.className = "heatmap-grid";
+    .sidebar h1 {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0;
+      color: var(--ink);
+    }
 
-  grid.appendChild(document.createElement("span"));
-  for (let hour = 0; hour < 24; hour++) {
-    const label = document.createElement("span");
-    label.className = "heatmap-hour";
-    label.textContent = hour % 3 === 0 ? formatHourLabel(hour) : "";
-    grid.appendChild(label);
-  }
+    .sidebar .subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      margin: 2px 0 0;
+      line-height: 1.4;
+    }
 
-  dates.forEach(dateKey => {
-    const dateLabel = document.createElement("span");
-    dateLabel.className = "heatmap-date";
-    dateLabel.textContent = formatDateShort(dateKey);
-    grid.appendChild(dateLabel);
-    for (let hour = 0; hour < 24; hour++) {
-      const key = `${dateKey}T${String(hour).padStart(2, "0")}`;
-      const count = countMap.get(key) || 0;
-      const cell = document.createElement("div");
-      cell.className = "heatmap-cell";
-      cell.title = `${formatDateLabel(dateKey)}, ${formatHourLabel(hour)} – ${formatHourLabel((hour + 1) % 24)}: ${count} request${count === 1 ? "" : "s"}`;
-      if (count > 0) {
-        const intensity = 0.18 + (count / maxCount) * 0.82;
-        cell.style.backgroundColor = `rgba(15, 110, 86, ${intensity})`;
+    .main {
+      flex: 1;
+      min-width: 0;
+      padding: 16px 20px 40px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    /* ---- Filters (in sidebar) ---- */
+    .filters {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    select,
+    input[type=date] {
+      border: 1px solid #d5d8de;
+      border-radius: 5px;
+      padding: 6px 8px;
+      font-size: 12px;
+      background: #fff;
+      color: var(--ink);
+      width: 100%;
+    }
+
+    .search-wrap {
+      position: relative;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      border: 1px solid #d5d8de;
+      border-radius: 5px;
+      padding: 6px 8px;
+    }
+
+    .search-box svg {
+      color: #9aa0ab;
+      flex-shrink: 0;
+    }
+
+    .search-box input {
+      border: none;
+      outline: none;
+      font-size: 12px;
+      flex: 1;
+      width: 100%;
+    }
+
+    .dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 4px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(20, 20, 30, .08);
+      z-index: 20;
+      max-height: 180px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .dropdown.open {
+      display: block;
+    }
+
+    .dropdown-item {
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .dropdown-item:hover {
+      background: #f2f4f7;
+    }
+
+    .date-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .date-row .field {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .generate-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 2px;
+    }
+
+    .generate-btn:hover {
+      background: var(--accent-dark);
+    }
+
+    .generate-btn:disabled {
+      background: #c7cad1;
+      cursor: not-allowed;
+    }
+
+    .error-msg {
+      color: #b3261e;
+      font-size: 11.5px;
+      margin: 0;
+      display: none;
+    }
+
+    .error-msg.show {
+      display: block;
+    }
+
+    .sidebar-status {
+      font-size: 10.5px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sidebar-status .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #9aa0ab;
+      flex-shrink: 0;
+    }
+
+    .sidebar-status.ok {
+      color: var(--accent-dark);
+    }
+
+    .sidebar-status.ok .status-dot {
+      background: var(--accent);
+    }
+
+    .sidebar-status.err {
+      color: #b3261e;
+    }
+
+    .sidebar-status.err .status-dot {
+      background: #b3261e;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 36px 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .empty-state strong {
+      display: block;
+      font-size: 14px;
+      color: var(--ink);
+      margin-bottom: 5px;
+    }
+
+    .report-header {
+      padding: 10px 14px;
+      margin-bottom: 10px;
+    }
+
+    .report-kicker {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      margin: 0 0 5px;
+    }
+
+    .report-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+    }
+
+    .report-meta b {
+      color: var(--ink);
+    }
+
+    .report-range {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ---- Unified stat strip ---- */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .stat-card {
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-label {
+      font-size: 9px;
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stat-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.1;
+    }
+
+    .stat-sub {
+      font-size: 8.5px;
+      color: var(--muted);
+    }
+
+    /* ---- Members card ---- */
+    .members-card {
+      padding: 8px 10px;
+      margin-bottom: 8px;
+    }
+
+    .members-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5px;
+    }
+
+    .members-table th,
+    .members-table td {
+      text-align: left;
+      padding: 3px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .members-table th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+    }
+
+    .members-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .streak-badge {
+      display: inline-block;
+      background: #eaf6f2;
+      color: var(--accent-dark);
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 9px;
+      font-size: 10.5px;
+    }
+
+    /* ---- Chart + breakdown row ---- */
+    .chart-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+      margin-bottom: 10px;
+    }
+
+    .chart-row .chart-card {
+      flex: 1.4 1 0;
+      min-width: 0;
+      margin-bottom: 0;
+    }
+
+    @media (max-width:900px) {
+      .chart-row {
+        flex-direction: column;
       }
-      grid.appendChild(cell);
     }
-  });
 
-  const scroll = document.createElement("div");
-  scroll.className = "heatmap-scroll";
-  scroll.appendChild(grid);
-
-  const legend = document.createElement("div");
-  legend.className = "heatmap-legend";
-  legend.innerHTML = "Less <span class=\"heatmap-swatch\" style=\"background:#f1f3f4\"></span><span class=\"heatmap-swatch\" style=\"background:rgba(15,110,86,.45)\"></span><span class=\"heatmap-swatch\" style=\"background:rgba(15,110,86,1)\"></span> More";
-  scroll.appendChild(legend);
-  return scroll;
-}
-
-function renderChart(buckets, countMap) {
-  const card = document.createElement("div");
-  card.className = "card chart-card";
-  const heading = document.createElement("div");
-  heading.className = "chart-heading";
-  heading.innerHTML = `<h3 class="chart-title">Requests by hour</h3>`;
-  const select = document.createElement("select");
-  select.className = "chart-view-select";
-  select.setAttribute("aria-label", "Activity chart view");
-  select.innerHTML = `<option value="heatmap">Heatmap</option><option value="timeline">Timeline</option>`;
-  heading.appendChild(select);
-  const content = document.createElement("div");
-  content.appendChild(renderHeatmapContent(buckets, countMap));
-  select.addEventListener("change", () => {
-    content.replaceChildren(select.value === "heatmap"
-      ? renderHeatmapContent(buckets, countMap)
-      : renderTimelineContent(buckets, countMap));
-  });
-  card.appendChild(heading);
-  card.appendChild(content);
-  return card;
-}
-
-function computeReportMetrics(rows) {
-  const total = rows.length;
-  const uniqueRequests = new Set(rows.map(a => a.dedup_hash)).size;
-  let error4xx = 0, error5xx = 0, authed = 0, unauthed = 0;
-  const methodCounts = new Map();
-  const endpointCounts = new Map();
-  const routeCounts = new Map();
-  const responseTimes = [];
-  const dateSet = new Set();
-  rows.forEach(a => {
-    const sc = Number(a.status_code);
-    if (sc >= 400 && sc < 500) error4xx++;
-    else if (sc >= 500) error5xx++;
-    if (a.application_authenticated === true || a.application_authenticated === "true" || a.application_authenticated === "t") authed++;
-    else unauthed++;
-    const method = a.method || "?";
-    methodCounts.set(method, (methodCounts.get(method) || 0) + 1);
-    const endpointKey = `${method} ${a.path || ""}`;
-    endpointCounts.set(endpointKey, (endpointCounts.get(endpointKey) || 0) + 1);
-    const routeKey = (a.path || "").replace(
-      /^\/api\/panda-262(\/[^/]+)(?:\/.*)?$/,
-      "$1"
-    );
-    routeCounts.set(routeKey, (routeCounts.get(routeKey) || 0) + 1);
-    if (a.response_time_ms !== null && a.response_time_ms !== undefined && a.response_time_ms !== "") {
-      responseTimes.push(Number(a.response_time_ms));
+    /* ---- Tabbed lists card ---- */
+    .tabs-card {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 0;
     }
-    dateSet.add(dateKeyOf(toDhakaParts(a.started_at)));
-  });
-  responseTimes.sort((x, y) => x - y);
-  const avgResponse = responseTimes.length
-    ? Math.round(responseTimes.reduce((s, v) => s + v, 0) / responseTimes.length)
-    : 0;
-  const p95Response = responseTimes.length
-    ? responseTimes[Math.min(responseTimes.length - 1, Math.floor(0.95 * (responseTimes.length - 1)))]
-    : 0;
-  const sortedDates = Array.from(dateSet).sort();
-  let longestStreak = 0, currentStreak = 0, prevKey = null;
-  sortedDates.forEach(dk => {
-    currentStreak = prevKey && addDaysToKey(prevKey, 1) === dk ? currentStreak + 1 : 1;
-    longestStreak = Math.max(longestStreak, currentStreak);
-    prevKey = dk;
-  });
-  return {
-    total,
-    uniqueRequests,
-    error4xx,
-    error5xx,
-    errorRate: total ? ((error4xx + error5xx) / total) * 100 : 0,
-    avgResponse,
-    p95Response,
-    topEndpoints: Array.from(endpointCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20),
-    topRoutes: Array.from(routeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20),
-    methodBreakdown: Array.from(methodCounts.entries()).sort((a, b) => b[1] - a[1]),
-    authed,
-    unauthed,
-    authRate: total ? (authed / total) * 100 : 0,
-    activeDays: sortedDates.length,
-    longestStreak,
-  };
-}
 
-function buildMetricCard(label, value, sub) {
-  const c = document.createElement("div");
-  c.className = "card metric-card";
-  c.innerHTML = `<span class="metric-label">${label}</span><span class="metric-value">${value}</span>${sub ? `<span class="metric-sub">${sub}</span>` : ""}`;
-  return c;
-}
+    .tabs-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
 
-function renderBarListCard(title, entries) {
-  const card = document.createElement("div");
-  card.className = "card bar-list-card";
-  const h = document.createElement("h3");
-  h.className = "section-title";
-  h.textContent = title;
-  card.appendChild(h);
-  if (!entries.length) {
-    const p = document.createElement("p");
-    p.className = "metric-sub";
-    p.textContent = "No data.";
-    card.appendChild(p);
-    return card;
-  }
-  const max = entries[0][1] || 1;
-  entries.forEach(([key, count]) => {
-    const row = document.createElement("div");
-    row.className = "bar-list-row";
-    row.innerHTML = `<span class="bar-list-key" title="${key}">${key}</span><span class="bar-list-track"><span class="bar-list-fill" style="width:${(count / max) * 100}%"></span></span><span class="bar-list-count">${count}</span>`;
-    card.appendChild(row);
-  });
-  return card;
-}
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      margin: 0;
+      color: var(--ink);
+    }
 
-function renderMembersCard(filtered) {
-  const byStudent = new Map();
-  filtered.forEach(a => {
-    const sid = a.student_id || "unknown";
-    if (!byStudent.has(sid)) byStudent.set(sid, []);
-    byStudent.get(sid).push(a);
-  });
-  const card = document.createElement("div");
-  card.className = "card members-card";
-  const h = document.createElement("h3");
-  h.className = "section-title";
-  h.textContent = "Members";
-  card.appendChild(h);
-  const table = document.createElement("table");
-  table.className = "members-table";
-  table.innerHTML = "<thead><tr><th>Student</th><th>Requests</th><th>Unique</th><th>Errors</th><th>Active days</th><th>Last activity</th></tr></thead>";
-  const tbody = document.createElement("tbody");
-  Array.from(byStudent.entries())
-    .sort((a, b) => b[1].length - a[1].length)
-    .forEach(([sid, rows]) => {
-      const m = computeReportMetrics(rows);
-      const last = rows.reduce((max, r) => (!max || r.started_at > max ? r.started_at : max), null);
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${sid}</td><td>${rows.length}</td><td>${m.uniqueRequests}</td><td>${m.error4xx + m.error5xx}</td><td>${m.activeDays}</td><td>${last ? formatDateLabel(dateKeyOf(toDhakaParts(last))) : "-"}</td>`;
-      tbody.appendChild(tr);
+    .tab-strip {
+      display: flex;
+      gap: 3px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .tab-list-scroll {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .bar-list-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      padding: 2px 0;
+    }
+
+    .bar-list-key {
+      width: auto;
+      flex: 1 1 auto;
+      min-width: 0;
+      color: var(--ink);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bar-list-track {
+      width: 52px;
+      flex-shrink: 0;
+      background: #eef0f3;
+      border-radius: 3px;
+      height: 6px;
+      overflow: hidden;
+    }
+
+    .bar-list-fill {
+      height: 100%;
+      background: var(--accent);
+    }
+
+    .bar-list-count {
+      width: 28px;
+      text-align: right;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    /* ---- Chart ---- */
+    .chart-card {
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+
+    .chart-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .chart-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      margin: 0;
+      color: var(--ink);
+    }
+
+    .chart-view-select {
+      border: 1px solid #d5d8de;
+      border-radius: 5px;
+      padding: 4px 7px;
+      font-size: 11px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .chart-body {
+      display: flex;
+    }
+
+    --chart-height: 150px;
+
+    .y-axis {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 150px;
+      padding-right: 6px;
+      font-size: 9.5px;
+      color: #9aa0ab;
+      text-align: right;
+    }
+
+    .chart-scroll {
+      overflow-x: auto;
+      flex: 1;
+      padding-bottom: 4px;
+      position: relative;
+    }
+
+    .chart-inner {
+      position: relative;
+      min-width: 100%;
+    }
+
+    .gridlines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 150px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .gridline {
+      border-top: 1px solid #eef0f3;
+    }
+
+    .bars {
+      display: flex;
+      align-items: flex-end;
+      height: 150px;
+      position: relative;
+    }
+
+    .bar-col {
+      width: 6px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      height: 100%;
+      position: relative;
+    }
+
+    .newday {
+      border-left: 1px dashed #d5d8de;
+    }
+
+    .day-label {
+      position: absolute;
+      top: -16px;
+      left: 3px;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: #4b5262;
+      white-space: nowrap;
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .bar {
+      width: 95%;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0;
+      cursor: pointer;
+      transition: background .1s;
+    }
+
+    .bar:hover {
+      background: var(--accent-dark);
+    }
+
+    .hour-label {
+      position: absolute;
+      bottom: -16px;
+      font-size: 8.5px;
+      color: #9aa0ab;
+      white-space: nowrap;
+    }
+
+    .tooltip {
+      position: absolute;
+      transform: translateX(-50%);
+      background: var(--ink);
+      color: #fff;
+      font-size: 10.5px;
+      padding: 6px 8px;
+      border-radius: 5px;
+      z-index: 30;
+      pointer-events: none;
+      white-space: nowrap;
+      display: none;
+    }
+
+    .tooltip-date {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .tooltip-range {
+      color: #c7cad1;
+      margin-bottom: 3px;
+    }
+
+    .tooltip-count {
+      font-weight: 600;
+    }
+
+    .scroll-hint {
+      text-align: center;
+      font-size: 10px;
+      color: var(--muted);
+      margin: 16px 0 0;
+    }
+
+    .heatmap-scroll {
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .heatmap-grid {
+      display: inline-grid;
+      grid-template-columns: 48px repeat(24, 15px);
+      gap: 1px;
+    }
+
+    .heatmap-hour {
+      font-size: 8px;
+      color: #9aa0ab;
+      text-align: center;
+      white-space: nowrap;
+      padding-bottom: 2px;
+    }
+
+    .heatmap-date {
+      align-self: center;
+      font-size: 9px;
+      color: #4b5262;
+      white-space: nowrap;
+    }
+
+    .heatmap-cell {
+      width: 15px;
+      height: 13px;
+      border-radius: 2px;
+      background: #f1f3f4;
+      cursor: pointer;
+    }
+
+    .heatmap-cell:hover {
+      outline: 2px solid var(--accent-dark);
+      outline-offset: 1px;
+    }
+
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 3px;
+      margin-top: 6px;
+      font-size: 8px;
+      color: var(--muted);
+    }
+
+    .heatmap-swatch {
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+    }
+
+    @media (max-width:820px) {
+      .shell {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .stats-row {
+        flex-direction: column;
+      }
+
+      .stat-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .tab-list-scroll {
+        max-height: none;
+      }
+    }
+
+    @media (max-width:480px) {
+      .stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .date-row {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div>
+        <h1>Activity Report</h1>
+        <p class="subtitle">Select an offering, a student or team, and a date range (Asia/Dhaka time).</p>
+      </div>
+
+      <div class="filters">
+        <div class="field">
+          <label for="offeringSelect">Offering</label>
+          <select id="offeringSelect">
+            <option value="">All offerings</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="typeSelect">Type</label>
+          <select id="typeSelect">
+            <option value="student">Student</option>
+            <option value="team">Team</option>
+          </select>
+        </div>
+
+        <div class="field search-wrap">
+          <label>Search</label>
+          <div class="search-box">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" id="searchInput" placeholder="Search student ID..." autocomplete="off" />
+          </div>
+          <div class="dropdown" id="dropdown"></div>
+        </div>
+
+        <div class="date-row">
+          <div class="field">
+            <label for="startDate">Start</label>
+            <input type="date" id="startDate" />
+          </div>
+          <div class="field">
+            <label for="endDate">End</label>
+            <input type="date" id="endDate" />
+          </div>
+        </div>
+
+        <button class="generate-btn" id="generateBtn">Generate report</button>
+        <p class="error-msg" id="errorMsg"></p>
+      </div>
+
+      <div class="sidebar-status" id="statusBar">
+        <span class="status-dot"></span>
+        <span id="statusText">Loading…</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div id="resultArea"></div>
+    </main>
+  </div>
+
+  <script>
+    const DHAKA_TZ = "Asia/Dhaka";
+    const PX_PER_HOUR = 38;
+    const CHART_HEIGHT = 150;
+    const DEFAULT_START_DATE = "2026-08-06";
+
+    let activities = [];
+    let selectedId = null;
+    let reportType = "student";
+    let selectedOffering = new URLSearchParams(window.location.search).get("offering") || "";
+    let activeListTab = "endpoints"; // endpoints | routes | methods
+
+    function toDhakaParts(isoString) {
+      const d = new Date(isoString);
+      const fmt = new Intl.DateTimeFormat("en-US", { timeZone: DHAKA_TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" });
+      const parts = {};
+      fmt.formatToParts(d).forEach(p => parts[p.type] = p.value);
+      return { year: +parts.year, month: +parts.month, day: +parts.day, hour: +parts.hour };
+    }
+    function dateKeyOf(p) { return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`; }
+    function bucketKeyOf(p) { return `${dateKeyOf(p)}T${String(p.hour).padStart(2, "0")}`; }
+    function todayInDhaka() {
+      return dateKeyOf(toDhakaParts(new Date().toISOString()));
+    }
+    function addDaysToKey(dateKey, days) {
+      const [y, m, d] = dateKey.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      dt.setUTCDate(dt.getUTCDate() + days);
+      return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+    }
+    function formatDateLabel(dateKey) {
+      const [y, m, d] = dateKey.split("-").map(Number);
+      return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+    }
+    function formatDateShort(dateKey) {
+      const [y, m, d] = dateKey.split("-").map(Number);
+      return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { day: "numeric", month: "short", timeZone: "UTC" });
+    }
+    function formatHourLabel(hour) {
+      const h12 = hour % 12 === 0 ? 12 : hour % 12;
+      return `${h12} ${hour < 12 ? "AM" : "PM"}`;
+    }
+    function buildBuckets(startDate, endDate) {
+      const buckets = [];
+      let cursor = startDate, guard = 0;
+      while (cursor <= endDate && guard < 4000) {
+        for (let hour = 0; hour < 24; hour++) buckets.push({ dateKey: cursor, hour, key: `${cursor}T${String(hour).padStart(2, "0")}` });
+        if (cursor === endDate) break;
+        cursor = addDaysToKey(cursor, 1);
+        guard++;
+      }
+      return buckets;
+    }
+
+    const typeSelect = document.getElementById("typeSelect");
+    const searchInput = document.getElementById("searchInput");
+    const dropdown = document.getElementById("dropdown");
+    const startDateInput = document.getElementById("startDate");
+    const endDateInput = document.getElementById("endDate");
+    const generateBtn = document.getElementById("generateBtn");
+    const errorMsg = document.getElementById("errorMsg");
+    const resultArea = document.getElementById("resultArea");
+    const statusBar = document.getElementById("statusBar");
+    const statusText = document.getElementById("statusText");
+
+    function distinctIds(field) {
+      return Array.from(new Set(activities.map(a => String(a[field])))).sort();
+    }
+
+    function renderDropdown() {
+      const field = reportType === "student" ? "student_id" : "team_id";
+      const options = distinctIds(field);
+      const text = searchInput.value.trim().toLowerCase();
+      const filtered = (text ? options.filter(o => o.toLowerCase().includes(text)) : options).slice(0, 12);
+      dropdown.innerHTML = "";
+      filtered.forEach(id => {
+        const item = document.createElement("div");
+        item.className = "dropdown-item";
+        item.textContent = id;
+        item.addEventListener("mousedown", () => {
+          searchInput.value = id;
+          selectedId = id;
+          dropdown.classList.remove("open");
+        });
+        dropdown.appendChild(item);
+      });
+      dropdown.classList.toggle("open", filtered.length > 0);
+    }
+
+    typeSelect.addEventListener("change", () => {
+      reportType = typeSelect.value;
+      searchInput.placeholder = reportType === "student" ? "Search student ID..." : "Search team ID...";
+      searchInput.value = "";
+      selectedId = null;
+      renderDropdown();
     });
-  table.appendChild(tbody);
-  card.appendChild(table);
-  return card;
-}
+    searchInput.addEventListener("focus", renderDropdown);
+    searchInput.addEventListener("input", () => { selectedId = null; renderDropdown(); });
+    searchInput.addEventListener("blur", () => setTimeout(() => dropdown.classList.remove("open"), 120));
 
-function generateReport() {
-  clearError();
-  if (!selectedId) { showError(`Select a ${reportType} ID before generating a report.`); return; }
-  const startDate = startDateInput.value, endDate = endDateInput.value;
-  if (!startDate || !endDate) { showError("Choose both a start date and an end date."); return; }
-  if (startDate > endDate) { showError("Start date must be before the end date."); return; }
+    function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add("show"); }
+    function clearError() { errorMsg.textContent = ""; errorMsg.classList.remove("show"); }
 
-  const matchField = reportType === "student" ? "student_id" : "team_id";
-  const filtered = activities.filter(a => {
-    if (String(a[matchField]) !== String(selectedId)) return false;
-    const dk = dateKeyOf(toDhakaParts(a.started_at));
-    return dk >= startDate && dk <= endDate;
-  });
+    function buildTooltipEl() {
+      const el = document.createElement("div");
+      el.className = "tooltip";
+      el.innerHTML = `<div class="tooltip-date"></div><div class="tooltip-range"></div><div class="tooltip-count"></div>`;
+      return el;
+    }
 
-  resultArea.innerHTML = "";
+    function renderTimelineContent(buckets, countMap) {
+      const maxCount = buckets.reduce((m, b) => Math.max(m, countMap.get(b.key) || 0), 0) || 1;
+      const labelEvery = buckets.length <= 30 ? 1 : buckets.length <= 100 ? 3 : buckets.length <= 300 ? 6 : 12;
+      const yTicks = [0, .25, .5, .75, 1].map(f => Math.round(maxCount * f));
 
-  if (filtered.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "card empty-state";
-    empty.innerHTML = `<strong>No activity found</strong>${reportType === "student" ? "Student" : "Team"} ${selectedId} has no recorded requests during the selected period.`;
-    resultArea.appendChild(empty);
-    return;
-  }
+      const body = document.createElement("div");
+      body.className = "chart-body";
 
-  const countMap = new Map();
-  let teamOfStudent = null;
-  filtered.forEach(a => {
-    const key = bucketKeyOf(toDhakaParts(a.started_at));
-    countMap.set(key, (countMap.get(key) || 0) + 1);
-    if (reportType === "student" && !teamOfStudent) teamOfStudent = a.team_id;
-  });
+      const yAxis = document.createElement("div");
+      yAxis.className = "y-axis";
+      yTicks.slice().reverse().forEach(t => {
+        const s = document.createElement("span");
+        s.textContent = t;
+        yAxis.appendChild(s);
+      });
 
-  const buckets = buildBuckets(startDate, endDate);
-  let peakBucket = null, peakCount = 0, activeHours = 0;
-  buckets.forEach(b => {
-    const c = countMap.get(b.key) || 0;
-    if (c > 0) activeHours++;
-    if (c > peakCount) { peakCount = c; peakBucket = b; }
-  });
+      const scrollDiv = document.createElement("div");
+      scrollDiv.className = "chart-scroll";
+      const inner = document.createElement("div");
+      inner.className = "chart-inner";
+      inner.style.width = (buckets.length * PX_PER_HOUR) + "px";
 
-  const header = document.createElement("div");
-  header.className = "card report-header";
-  header.innerHTML = `
+      const gridlines = document.createElement("div");
+      gridlines.className = "gridlines";
+      yTicks.forEach(() => gridlines.appendChild(Object.assign(document.createElement("div"), { className: "gridline" })));
+
+      const barsDiv = document.createElement("div");
+      barsDiv.className = "bars";
+
+      const tooltip = buildTooltipEl();
+
+      buckets.forEach((b, i) => {
+        const count = countMap.get(b.key) || 0;
+        const isNewDay = i === 0 || buckets[i - 1].dateKey !== b.dateKey;
+        const barH = count === 0 ? 0 : Math.max(2, (count / maxCount) * CHART_HEIGHT);
+        const showLabel = i % labelEvery === 0;
+
+        const col = document.createElement("div");
+        col.className = "bar-col" + (isNewDay ? " newday" : "");
+
+        if (isNewDay) {
+          const dl = document.createElement("span");
+          dl.className = "day-label";
+          dl.textContent = formatDateShort(b.dateKey);
+          col.appendChild(dl);
+        }
+
+        const track = document.createElement("div");
+        track.className = "bar-track";
+        const bar = document.createElement("div");
+        bar.className = "bar";
+        bar.style.height = barH + "px";
+        bar.addEventListener("mouseenter", () => {
+          const rect = bar.getBoundingClientRect();
+          const wrapRect = scrollDiv.getBoundingClientRect();
+          tooltip.style.left = (rect.left - wrapRect.left + scrollDiv.scrollLeft + rect.width / 2) + "px";
+          tooltip.style.top = Math.max(0, rect.top - wrapRect.top - 50) + "px";
+          tooltip.querySelector(".tooltip-date").textContent = formatDateLabel(b.dateKey);
+          tooltip.querySelector(".tooltip-range").textContent = `${formatHourLabel(b.hour)} – ${formatHourLabel((b.hour + 1) % 24)}`;
+          tooltip.querySelector(".tooltip-count").textContent = `Requests: ${count}`;
+          tooltip.style.display = "block";
+        });
+        bar.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
+        track.appendChild(bar);
+        col.appendChild(track);
+
+        if (showLabel) {
+          const hl = document.createElement("span");
+          hl.className = "hour-label";
+          hl.textContent = formatHourLabel(b.hour);
+          col.appendChild(hl);
+        }
+        barsDiv.appendChild(col);
+      });
+
+      inner.appendChild(gridlines);
+      inner.appendChild(barsDiv);
+      inner.appendChild(tooltip);
+      scrollDiv.appendChild(inner);
+      body.appendChild(yAxis);
+      body.appendChild(scrollDiv);
+
+      const hint = document.createElement("p");
+      hint.className = "scroll-hint";
+      hint.textContent = "← scroll horizontally →";
+
+      const content = document.createElement("div");
+      content.appendChild(body);
+      content.appendChild(hint);
+      return content;
+    }
+
+    function renderHeatmapContent(buckets, countMap) {
+      const maxCount = buckets.reduce((m, b) => Math.max(m, countMap.get(b.key) || 0), 0) || 1;
+      const dates = Array.from(new Set(buckets.map(b => b.dateKey))).sort().reverse();
+
+      const grid = document.createElement("div");
+      grid.className = "heatmap-grid";
+
+      grid.appendChild(document.createElement("span"));
+      for (let hour = 0; hour < 24; hour++) {
+        const label = document.createElement("span");
+        label.className = "heatmap-hour";
+        label.textContent = hour % 3 === 0 ? formatHourLabel(hour) : "";
+        grid.appendChild(label);
+      }
+
+      dates.forEach(dateKey => {
+        const dateLabel = document.createElement("span");
+        dateLabel.className = "heatmap-date";
+        dateLabel.textContent = formatDateShort(dateKey);
+        grid.appendChild(dateLabel);
+        for (let hour = 0; hour < 24; hour++) {
+          const key = `${dateKey}T${String(hour).padStart(2, "0")}`;
+          const count = countMap.get(key) || 0;
+          const cell = document.createElement("div");
+          cell.className = "heatmap-cell";
+          cell.title = `${formatDateLabel(dateKey)}, ${formatHourLabel(hour)} – ${formatHourLabel((hour + 1) % 24)}: ${count} request${count === 1 ? "" : "s"}`;
+          if (count > 0) {
+            const intensity = 0.18 + (count / maxCount) * 0.82;
+            cell.style.backgroundColor = `rgba(15, 110, 86, ${intensity})`;
+          }
+          grid.appendChild(cell);
+        }
+      });
+
+      const scroll = document.createElement("div");
+      scroll.className = "heatmap-scroll";
+      scroll.appendChild(grid);
+
+      const legend = document.createElement("div");
+      legend.className = "heatmap-legend";
+      legend.innerHTML = "Less <span class=\"heatmap-swatch\" style=\"background:#f1f3f4\"></span><span class=\"heatmap-swatch\" style=\"background:rgba(15,110,86,.45)\"></span><span class=\"heatmap-swatch\" style=\"background:rgba(15,110,86,1)\"></span> More";
+      scroll.appendChild(legend);
+      return scroll;
+    }
+
+    function renderChart(buckets, countMap) {
+      const card = document.createElement("div");
+      card.className = "card chart-card";
+      const heading = document.createElement("div");
+      heading.className = "chart-heading";
+      heading.innerHTML = `<h3 class="chart-title">Requests by hour</h3>`;
+      const select = document.createElement("select");
+      select.className = "chart-view-select";
+      select.setAttribute("aria-label", "Activity chart view");
+      select.innerHTML = `<option value="heatmap">Heatmap</option><option value="timeline">Timeline</option>`;
+      heading.appendChild(select);
+      const content = document.createElement("div");
+      content.appendChild(renderHeatmapContent(buckets, countMap));
+      select.addEventListener("change", () => {
+        content.replaceChildren(select.value === "heatmap"
+          ? renderHeatmapContent(buckets, countMap)
+          : renderTimelineContent(buckets, countMap));
+      });
+      card.appendChild(heading);
+      card.appendChild(content);
+      return card;
+    }
+
+    function computeReportMetrics(rows) {
+      const total = rows.length;
+      const uniqueRequests = new Set(rows.map(a => a.dedup_hash)).size;
+      let error4xx = 0, error5xx = 0, authed = 0, unauthed = 0;
+      const methodCounts = new Map();
+      const endpointCounts = new Map();
+      const routeCounts = new Map();
+      const responseTimes = [];
+      const dateSet = new Set();
+      rows.forEach(a => {
+        const sc = Number(a.status_code);
+        if (sc >= 400 && sc < 500) error4xx++;
+        else if (sc >= 500) error5xx++;
+        if (a.application_authenticated === true || a.application_authenticated === "true" || a.application_authenticated === "t") authed++;
+        else unauthed++;
+        const method = a.method || "?";
+        methodCounts.set(method, (methodCounts.get(method) || 0) + 1);
+        const endpointKey = `${method} ${a.path || ""}`;
+        endpointCounts.set(endpointKey, (endpointCounts.get(endpointKey) || 0) + 1);
+        const routeKey = (a.path || "").replace(
+          /^\/api\/panda-262(\/[^/]+)(?:\/.*)?$/,
+          "$1"
+        );
+        routeCounts.set(routeKey, (routeCounts.get(routeKey) || 0) + 1);
+        if (a.response_time_ms !== null && a.response_time_ms !== undefined && a.response_time_ms !== "") {
+          responseTimes.push(Number(a.response_time_ms));
+        }
+        dateSet.add(dateKeyOf(toDhakaParts(a.started_at)));
+      });
+      responseTimes.sort((x, y) => x - y);
+      const avgResponse = responseTimes.length
+        ? Math.round(responseTimes.reduce((s, v) => s + v, 0) / responseTimes.length)
+        : 0;
+      const p95Response = responseTimes.length
+        ? responseTimes[Math.min(responseTimes.length - 1, Math.floor(0.95 * (responseTimes.length - 1)))]
+        : 0;
+      const sortedDates = Array.from(dateSet).sort();
+      let longestStreak = 0, currentStreak = 0, prevKey = null;
+      sortedDates.forEach(dk => {
+        currentStreak = prevKey && addDaysToKey(prevKey, 1) === dk ? currentStreak + 1 : 1;
+        longestStreak = Math.max(longestStreak, currentStreak);
+        prevKey = dk;
+      });
+      return {
+        total,
+        uniqueRequests,
+        error4xx,
+        error5xx,
+        errorRate: total ? ((error4xx + error5xx) / total) * 100 : 0,
+        avgResponse,
+        p95Response,
+        topEndpoints: Array.from(endpointCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20),
+        topRoutes: Array.from(routeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20),
+        methodBreakdown: Array.from(methodCounts.entries()).sort((a, b) => b[1] - a[1]),
+        authed,
+        unauthed,
+        authRate: total ? (authed / total) * 100 : 0,
+        activeDays: sortedDates.length,
+        longestStreak,
+      };
+    }
+
+    function buildStatCard(label, value, sub) {
+      const c = document.createElement("div");
+      c.className = "card stat-card";
+      c.innerHTML = `<span class="stat-label">${label}</span><span class="stat-value">${value}</span>${sub ? `<span class="stat-sub">${sub}</span>` : ""}`;
+      return c;
+    }
+
+    function renderBarListRows(container, entries) {
+      container.innerHTML = "";
+      if (!entries.length) {
+        const p = document.createElement("p");
+        p.className = "stat-sub";
+        p.textContent = "No data.";
+        container.appendChild(p);
+        return;
+      }
+      const max = entries[0][1] || 1;
+      entries.forEach(([key, count]) => {
+        const row = document.createElement("div");
+        row.className = "bar-list-row";
+        row.innerHTML = `<span class="bar-list-key" title="${key}">${key}</span><span class="bar-list-track"><span class="bar-list-fill" style="width:${(count / max) * 100}%"></span></span><span class="bar-list-count">${count}</span>`;
+        container.appendChild(row);
+      });
+    }
+
+    function renderTabsCard(metrics) {
+      const card = document.createElement("div");
+      card.className = "card tabs-card";
+
+      const heading = document.createElement("div");
+      heading.className = "tabs-heading";
+      heading.innerHTML = `<h3 class="section-title">Request breakdown</h3>`;
+
+      const strip = document.createElement("div");
+      strip.className = "tab-strip";
+      const tabs = [
+        ["endpoints", "Top endpoints", metrics.topEndpoints],
+        ["routes", "By route", metrics.topRoutes],
+        ["methods", "By method", metrics.methodBreakdown],
+      ];
+
+      const listContainer = document.createElement("div");
+      listContainer.className = "tab-list-scroll";
+
+      function setTab(id) {
+        activeListTab = id;
+        strip.querySelectorAll(".tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === id));
+        const entry = tabs.find(t => t[0] === id);
+        renderBarListRows(listContainer, entry[2]);
+      }
+
+      tabs.forEach(([id, label]) => {
+        const btn = document.createElement("button");
+        btn.className = "tab-btn" + (id === activeListTab ? " active" : "");
+        btn.dataset.tab = id;
+        btn.textContent = label;
+        btn.addEventListener("click", () => setTab(id));
+        strip.appendChild(btn);
+      });
+
+      heading.appendChild(strip);
+      card.appendChild(heading);
+      card.appendChild(listContainer);
+      setTab(activeListTab);
+      return card;
+    }
+
+    function renderMembersCard(filtered) {
+      const byStudent = new Map();
+      filtered.forEach(a => {
+        const sid = a.student_id || "unknown";
+        if (!byStudent.has(sid)) byStudent.set(sid, []);
+        byStudent.get(sid).push(a);
+      });
+      const card = document.createElement("div");
+      card.className = "card members-card";
+      const h = document.createElement("h3");
+      h.className = "section-title";
+      h.textContent = "Members";
+      h.style.marginBottom = "8px";
+      card.appendChild(h);
+      const table = document.createElement("table");
+      table.className = "members-table";
+      table.innerHTML = "<thead><tr><th>Student</th><th>Requests</th><th>Unique</th><th>Errors</th><th>Active days</th><th>Last activity</th></tr></thead>";
+      const tbody = document.createElement("tbody");
+      Array.from(byStudent.entries())
+        .sort((a, b) => b[1].length - a[1].length)
+        .forEach(([sid, rows]) => {
+          const m = computeReportMetrics(rows);
+          const last = rows.reduce((max, r) => (!max || r.started_at > max ? r.started_at : max), null);
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${sid}</td><td>${rows.length}</td><td>${m.uniqueRequests}</td><td>${m.error4xx + m.error5xx}</td><td>${m.activeDays}</td><td>${last ? formatDateLabel(dateKeyOf(toDhakaParts(last))) : "-"}</td>`;
+          tbody.appendChild(tr);
+        });
+      table.appendChild(tbody);
+      card.appendChild(table);
+      return card;
+    }
+
+    function generateReport() {
+      clearError();
+      if (!selectedId) { showError(`Select a ${reportType} ID before generating a report.`); return; }
+      const startDate = startDateInput.value, endDate = endDateInput.value;
+      if (!startDate || !endDate) { showError("Choose both a start date and an end date."); return; }
+      if (startDate > endDate) { showError("Start date must be before the end date."); return; }
+
+      const matchField = reportType === "student" ? "student_id" : "team_id";
+      const filtered = activities.filter(a => {
+        if (String(a[matchField]) !== String(selectedId)) return false;
+        const dk = dateKeyOf(toDhakaParts(a.started_at));
+        return dk >= startDate && dk <= endDate;
+      });
+
+      resultArea.innerHTML = "";
+
+      if (filtered.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "card empty-state";
+        empty.innerHTML = `<strong>No activity found</strong>${reportType === "student" ? "Student" : "Team"} ${selectedId} has no recorded requests during the selected period.`;
+        resultArea.appendChild(empty);
+        return;
+      }
+
+      const countMap = new Map();
+      let teamOfStudent = null;
+      filtered.forEach(a => {
+        const key = bucketKeyOf(toDhakaParts(a.started_at));
+        countMap.set(key, (countMap.get(key) || 0) + 1);
+        if (reportType === "student" && !teamOfStudent) teamOfStudent = a.team_id;
+      });
+
+      const buckets = buildBuckets(startDate, endDate);
+      let peakBucket = null, peakCount = 0, activeHours = 0;
+      buckets.forEach(b => {
+        const c = countMap.get(b.key) || 0;
+        if (c > 0) activeHours++;
+        if (c > peakCount) { peakCount = c; peakBucket = b; }
+      });
+
+      const header = document.createElement("div");
+      header.className = "card report-header";
+      header.innerHTML = `
     <p class="report-kicker">${reportType === "student" ? "Student activity report" : "Team activity report"}</p>
     <div class="report-meta">
       <span>${reportType === "student" ? "Student" : "Team"}: <b>${selectedId}</b></span>
@@ -606,97 +1281,83 @@ function generateReport() {
     </div>
     <p class="report-range">${formatDateLabel(startDate)} — ${formatDateLabel(endDate)}</p>
   `;
+      resultArea.appendChild(header);
 
-  const summary = document.createElement("div");
-  summary.className = "summary-grid";
-  const cards = [
-    ["Total requests", filtered.length],
-    ["Active hours", activeHours],
-    ["Peak hour", peakBucket ? `${formatDateShort(peakBucket.dateKey)} · ${formatHourLabel(peakBucket.hour)}` : "—"],
-    ["Peak requests", peakCount],
-  ];
-  cards.forEach(([label, value]) => {
-    const c = document.createElement("div");
-    c.className = "card summary-card";
-    c.innerHTML = `<span class="summary-label">${label}</span><span class="summary-value">${value}</span>`;
-    summary.appendChild(c);
-  });
+      // Members card goes above the stat grid, per request (team reports only)
+      if (reportType === "team") {
+        resultArea.appendChild(renderMembersCard(filtered));
+      }
 
-  resultArea.appendChild(header);
-  resultArea.appendChild(summary);
+      const metrics = computeReportMetrics(filtered);
 
-  const metrics = computeReportMetrics(filtered);
-  const metricsGrid = document.createElement("div");
-  metricsGrid.className = "metrics-grid";
-  metricsGrid.appendChild(buildMetricCard("Unique requests", metrics.uniqueRequests, `of ${metrics.total} total`));
-  metricsGrid.appendChild(buildMetricCard("Error rate", `${metrics.errorRate.toFixed(1)}%`, `${metrics.error4xx} 4xx · ${metrics.error5xx} 5xx`));
-  // metricsGrid.appendChild(buildMetricCard("Avg response", `${metrics.avgResponse} ms`, `p95: ${metrics.p95Response} ms`));
-  metricsGrid.appendChild(buildMetricCard("Authenticated", `${metrics.authRate.toFixed(1)}%`, `${metrics.authed} of ${metrics.total} requests`));
-  metricsGrid.appendChild(buildMetricCard("Active days", metrics.activeDays, `<span class="streak-badge">🔥 ${metrics.longestStreak}-day streak</span>`));
-  resultArea.appendChild(metricsGrid);
+      const statGrid = document.createElement("div");
+      statGrid.className = "stat-grid";
+      statGrid.appendChild(buildStatCard("Total requests", filtered.length));
+      statGrid.appendChild(buildStatCard("Active hours", activeHours));
+      statGrid.appendChild(buildStatCard("Peak hour", peakBucket ? `${formatDateShort(peakBucket.dateKey)} · ${formatHourLabel(peakBucket.hour)}` : "—"));
+      statGrid.appendChild(buildStatCard("Peak requests", peakCount));
+      statGrid.appendChild(buildStatCard("Unique requests", metrics.uniqueRequests, `of ${metrics.total} total`));
+      statGrid.appendChild(buildStatCard("Error rate", `${metrics.errorRate.toFixed(1)}%`, `${metrics.error4xx} 4xx · ${metrics.error5xx} 5xx`));
+      statGrid.appendChild(buildStatCard("Active days", metrics.activeDays, `<span class="streak-badge">🔥 ${metrics.longestStreak}-day streak</span>`));
 
-  const twoCol = document.createElement("div");
-  twoCol.className = "two-col";
-  twoCol.appendChild(renderBarListCard("Top endpoints", metrics.topEndpoints));
-  twoCol.appendChild(renderBarListCard("Requests by route", metrics.topRoutes));
-  twoCol.appendChild(renderBarListCard("Requests by method", metrics.methodBreakdown));
-  resultArea.appendChild(twoCol);
+      resultArea.appendChild(statGrid);
 
-  resultArea.appendChild(renderChart(buckets, countMap));
+      const chartRow = document.createElement("div");
+      chartRow.className = "chart-row";
+      chartRow.appendChild(renderChart(buckets, countMap));
+      chartRow.appendChild(renderTabsCard(metrics));
+      resultArea.appendChild(chartRow);
+    }
 
-  if (reportType === "team") {
-    resultArea.appendChild(renderMembersCard(filtered));
-  }
-}
+    generateBtn.addEventListener("click", generateReport);
 
-generateBtn.addEventListener("click", generateReport);
+    async function loadOfferings() {
+      const select = document.getElementById("offeringSelect");
+      try {
+        const res = await fetch("/admin/reports/offerings");
+        if (!res.ok) throw new Error(`Server responded ${res.status}`);
+        const offerings = await res.json();
+        offerings.forEach((o) => {
+          const opt = document.createElement("option");
+          opt.value = o.code;
+          opt.textContent = `${o.code} (${o.status})`;
+          select.appendChild(opt);
+        });
+        if (selectedOffering) select.value = selectedOffering;
+      } catch (err) {
+        // Offering list is a convenience filter; failure here is non-fatal.
+      }
+      select.addEventListener("change", () => {
+        selectedOffering = select.value;
+        selectedId = null;
+        searchInput.value = "";
+        resultArea.innerHTML = "";
+        loadActivities();
+      });
+    }
 
-async function loadOfferings() {
-  const select = document.getElementById("offeringSelect");
-  try {
-    const res = await fetch("/admin/reports/offerings");
-    if (!res.ok) throw new Error(`Server responded ${res.status}`);
-    const offerings = await res.json();
-    offerings.forEach((o) => {
-      const opt = document.createElement("option");
-      opt.value = o.code;
-      opt.textContent = `${o.code} (${o.status})`;
-      select.appendChild(opt);
-    });
-    if (selectedOffering) select.value = selectedOffering;
-  } catch (err) {
-    // Offering list is a convenience filter; failure here is non-fatal.
-  }
-  select.addEventListener("change", () => {
-    selectedOffering = select.value;
-    selectedId = null;
-    searchInput.value = "";
-    resultArea.innerHTML = "";
+    async function loadActivities() {
+      statusBar.className = "sidebar-status";
+      statusText.textContent = "Loading activity data…";
+      try {
+        const url = "/admin/reports/data" + (selectedOffering ? `?offering=${encodeURIComponent(selectedOffering)}` : "");
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Server responded ${res.status}`);
+        activities = await res.json();
+        statusBar.className = "sidebar-status ok";
+        statusText.textContent = selectedOffering
+          ? `${activities.length} records — ${selectedOffering}`
+          : `${activities.length} records loaded`;
+      } catch (err) {
+        statusBar.className = "sidebar-status err";
+        statusText.textContent = `Load failed: ${err.message}`;
+      }
+    }
+    startDateInput.value = DEFAULT_START_DATE;
+    endDateInput.value = todayInDhaka();
+    loadOfferings();
     loadActivities();
-  });
-}
-
-async function loadActivities() {
-  statusBar.className = "card status-bar";
-  statusText.textContent = "Loading activity data…";
-  try {
-    const url = "/admin/reports/data" + (selectedOffering ? `?offering=${encodeURIComponent(selectedOffering)}` : "");
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Server responded ${res.status}`);
-    activities = await res.json();
-    statusBar.className = "card status-bar ok";
-    statusText.textContent = selectedOffering
-      ? `Connected — ${activities.length} activity records loaded for offering ${selectedOffering}.`
-      : `Connected — ${activities.length} activity records loaded from the server.`;
-  } catch (err) {
-    statusBar.className = "card status-bar err";
-    statusText.textContent = `Could not load activity data: ${err.message}`;
-  }
-}
-startDateInput.value = DEFAULT_START_DATE;
-endDateInput.value = todayInDhaka();
-loadOfferings();
-loadActivities();
-</script>
+  </script>
 </body>
+
 </html>

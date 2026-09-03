@@ -30,7 +30,9 @@ load_dotenv()  # reads .env in the same folder as this script
 # ---- CONFIG ----
 GMAIL_ADDRESS = os.environ.get("GMAIL_ADDRESS", "youraddress@gmail.com")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "your16charapppassword")
-SUBJECT = "Common Subject"
+SUBJECT = "[CSE 4495] Lab Credentials"
+BASE_URL = "TO_BE_DEFINED"
+DOCUMENTATION = "TO_BE_DEFINED"
 DELAY_SECONDS = 2  # pause between sends, be polite to Gmail's servers
 
 
@@ -42,6 +44,9 @@ Here are your credentials for the CSE 4495 lab environment:
 Student ID: {row['student_id']}
 Team Code: {row['team_code']}
 X-STQA-Key: {row['lab_key']}
+BASE_URL: {BASE_URL}
+Documentation: {DOCUMENTATION}
+**NOTE**: DO NOT TAKE 'ANY SORT OF HELP FROM THE AI' TO COMPLETE YOUR ASSIGNMENT. 
 
 Please keep this key confidential — do not share it with other students, not even with your team mates.
 

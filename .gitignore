@@ -4,3 +4,5 @@ send_keys/credentials.csv
 send_keys/send_log.csv
 generate_report/activity.csv
 db_queries/**/*.csv
+backends/
+check_reports/course_files

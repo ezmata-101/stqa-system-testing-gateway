@@ -7,3 +7,4 @@ db_queries/**/*.csv
 backends/
 check_reports/course_files
 check_reports/venv/
+check_reports/requests.csv

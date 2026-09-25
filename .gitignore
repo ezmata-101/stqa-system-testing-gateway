@@ -6,3 +6,4 @@ generate_report/activity.csv
 db_queries/**/*.csv
 backends/
 check_reports/course_files
+check_reports/venv/
